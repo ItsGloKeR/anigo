@@ -546,27 +546,28 @@ class KitsuScraper:
     API = "https://kitsu.io/api/edge"
 
     @cached("kitsu:episodes", ttl=86400)
-    def get_episode_meta(self, title, alt_title=None):
+    def get_episode_meta(self, title=None, alt_title=None, kitsu_id=None):
         try:
-            # 1. Search for anime (Try primary title)
-            titles_to_try = [t for t in [title, alt_title] if t]
-            anime_id = None
+            target_id = kitsu_id
             
-            for t in titles_to_try:
-                search_data = http.get_json(f"{self.API}/anime", params={"filter[text]": t})
-                if search_data.get("data"):
-                    anime_id = search_data["data"][0]["id"]
-                    log.info(f"Kitsu: Found anime '{t}' with ID {anime_id}")
-                    break
+            # 1. If no ID provide, search for anime
+            if not target_id:
+                titles_to_try = [t for t in [title, alt_title] if t]
+                for t in titles_to_try:
+                    search_data = http.get_json(f"{self.API}/anime", params={"filter[text]": t})
+                    if search_data.get("data"):
+                        target_id = search_data["data"][0]["id"]
+                        log.info(f"Kitsu: Found anime '{t}' with ID {target_id}")
+                        break
             
-            if not anime_id:
+            if not target_id:
                 return {}
             
             # 2. Fetch episodes
             ep_meta = {}
-            for offset in [0, 100]:
+            for offset in [0, 100, 200]:
                 ep_data = http.get_json(f"{self.API}/episodes", params={
-                    "filter[mediaId]": anime_id,
+                    "filter[mediaId]": target_id,
                     "page[limit]": 100,
                     "page[offset]": offset,
                     "sort": "number"
@@ -580,12 +581,17 @@ class KitsuScraper:
                     num = attr.get("number")
                     if num is None: continue
                     
-                    # Ensure numeric string for JS lookup
                     num_key = str(num)
+                    # Get high-res original thumbnail
+                    img = None
+                    if attr.get("thumbnail"):
+                        thumb = attr["thumbnail"]
+                        img = thumb.get("original") or thumb.get("large") or thumb.get("medium")
+                    
                     ep_meta[num_key] = {
                         "title": attr.get("canonicalTitle") or attr.get("titles", {}).get("en_us"),
                         "description": attr.get("synopsis"),
-                        "image": attr.get("thumbnail", {}).get("original") if attr.get("thumbnail") else None
+                        "image": img
                     }
                 
                 if len(ep_data["data"]) < 100:
@@ -636,9 +642,12 @@ def index():
 def api_meta_episodes():
     title = request.args.get("title", "").strip()
     alt_title = request.args.get("alt_title", "").strip()
-    if not title:
-        return {"error": "Title required"}, 400
-    return kitsu.get_episode_meta(title, alt_title)
+    kitsu_id = request.args.get("kitsu_id", "").strip()
+    
+    if not title and not kitsu_id:
+        return {"error": "Title or kitsu_id required"}, 400
+        
+    return kitsu.get_episode_meta(title=title, alt_title=alt_title, kitsu_id=kitsu_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

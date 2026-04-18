@@ -581,18 +581,30 @@ export async function checkDubAvailability(anilistId) {
   }
 }
 
-export async function getSecondaryEpisodeMeta(title, altTitle = "") {
-  if (!title && !altTitle) return {};
+export async function getSecondaryEpisodeMeta(title, altTitle = "", kitsuId = "") {
+  if (!title && !altTitle && !kitsuId) return {};
   try {
     const { data } = await axios.get(`${ANIGO_SERVER}/api/meta/episodes`, {
       params: { 
         title,
-        alt_title: altTitle
+        alt_title: altTitle,
+        kitsu_id: kitsuId
       },
     });
     return data;
   } catch (err) {
     console.error("Secondary metadata fetch failed:", err);
     return {};
+  }
+}
+
+export async function getMalSyncMapping(malId) {
+  if (!malId) return null;
+  try {
+    const { data } = await axios.get(`${ANIGO_SERVER}/api/malsync/${malId}`);
+    return data;
+  } catch (err) {
+    console.error("MalSync mapping failed:", err);
+    return null;
   }
 }

@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { getAnimeDetails, getEpisodeTitles, getAniwatchId, getAniwatchEpisodes, checkDubAvailability, getJikanAnimeDetails, getAnikaiDetails, getAniwatchDetails, getSecondaryEpisodeMeta } from "../services/api";
+import { getAnimeDetails, getEpisodeTitles, getAniwatchId, getAniwatchEpisodes, checkDubAvailability, getJikanAnimeDetails, getAnikaiDetails, getAniwatchDetails, getSecondaryEpisodeMeta, getMalSyncMapping } from "../services/api";
 import { resolveAnikaiMatch, resolveAniwatchMatch, scoreMetadata } from "../services/anikaiMapping";
 import { useLanguage } from "../context/LanguageContext";
 import { useUserList } from "../context/UserListContext";
@@ -154,12 +154,22 @@ export default function Watch() {
     staleTime: 1000 * 60 * 60 * 24,
   });
 
+  // MALSync Mapping for precise external IDs (Kitsu, Aniwatch, etc)
+  const { data: malsyncMapping } = useQuery({
+    queryKey: ["malsyncMapping", anime?.idMal],
+    queryFn: () => getMalSyncMapping(anime?.idMal),
+    enabled: !!anime?.idMal,
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+
+  const kitsuIdFromMapping = malsyncMapping?.Sites?.Kitsu ? Object.keys(malsyncMapping.Sites.Kitsu)[0] : null;
+
   const kitsuTitle = anime?.title?.english;
   const kitsuAltTitle = anime?.title?.romaji;
   const { data: kitsuEpisodes } = useQuery({
-    queryKey: ["kitsuEpisodes", kitsuTitle, kitsuAltTitle],
-    queryFn: () => getSecondaryEpisodeMeta(kitsuTitle, kitsuAltTitle),
-    enabled: !!kitsuTitle || !!kitsuAltTitle,
+    queryKey: ["kitsuEpisodes", kitsuTitle, kitsuAltTitle, kitsuIdFromMapping],
+    queryFn: () => getSecondaryEpisodeMeta(kitsuTitle, kitsuAltTitle, kitsuIdFromMapping),
+    enabled: !!kitsuTitle || !!kitsuAltTitle || !!kitsuIdFromMapping,
     staleTime: 1000 * 60 * 60 * 24,
   });
 
@@ -241,12 +251,18 @@ export default function Watch() {
       se => se.title && /Episode\s+(\d+)/i.test(se.title) && parseInt(se.title.match(/Episode\s+(\d+)/i)[1]) === activeEpisode
     ) || anime?.streamingEpisodes?.[activeEpisode - 1];
 
-    return aniListEp?.thumbnail ||
+    // Priority:
+    // 1. Kitsu (Best for unique screenshots)
+    // 2. AniList Thumbnail (If not placeholder)
+    // 3. Jikan / MAL
+    // 4. Fallback to Anime Banner
+    return (kitsuEpisodes?.[activeEpisode]?.image || kitsuEpisodes?.[String(activeEpisode)]?.image) ||
+      aniListEp?.thumbnail ||
       epData?.images?.jpg?.image_url ||
       anime?.bannerImage ||
       anime?.coverImage?.extraLarge ||
       anime?.coverImage?.large;
-  }, [anime, malEpisodes, activeEpisode]);
+  }, [anime, malEpisodes, activeEpisode, kitsuEpisodes]);
 
   useEffect(() => {
     const searchTitle = anime?.title?.english || anime?.title?.romaji || anime?.title?.native;
@@ -273,7 +289,7 @@ export default function Watch() {
                 });
               }
             }
-          } catch (e) {
+          } catch {
             console.warn("[Aniwatch] MALSync lookup failed, falling back to search.");
           }
         }
@@ -281,7 +297,7 @@ export default function Watch() {
         // Step 2: Dynamic Search
         const searchResults = await getAniwatchId(searchTitle);
         const candidates = resolveAniwatchMatch(strongCandidates.concat(searchResults), anime);
-        
+
         if (candidates.length === 0) {
           setAniwatchEps([]);
           return;
@@ -289,7 +305,7 @@ export default function Watch() {
 
         // Step 3: Deep Verification (Fetch info for top 3 in parallel)
         console.group(`[Aniwatch] Deep Resolving: ${anime.title?.english || id}`);
-        const infoPromises = candidates.map(c => 
+        const infoPromises = candidates.map(c =>
           axios.get(`${PYTHON_API}/api/aniwatch/info/${c.data_id}`)
             .then(res => ({ ...c, info: res.data }))
             .catch(() => ({ ...c, info: null }))
@@ -357,12 +373,12 @@ export default function Watch() {
 
         // DEEP VERIFICATION: Fetch info for top candidates in parallel
         console.group(`[Mapping] Deep Resolving: ${anime.title?.english || id}`);
-        const infoPromises = candidates.map(c => 
+        const infoPromises = candidates.map(c =>
           axios.get(`${PYTHON_API}/api/anikai/info/${c.slug}`)
             .then(res => ({ ...c, info: res.data }))
             .catch(() => ({ ...c, info: null }))
         );
-        
+
         const verificationResults = await Promise.all(infoPromises);
         if (cancelled) {
           console.groupEnd();
@@ -376,7 +392,7 @@ export default function Watch() {
 
         finalScored.sort((a, b) => b.totalScore - a.totalScore);
         const best = finalScored[0];
-        
+
         // Log detailed scoring for transparency
         console.table(finalScored.map(f => ({
           Title: f.title,
@@ -390,7 +406,7 @@ export default function Watch() {
 
         const resolvedSlug = best.slug;
         const aniId = best.info?.ani_id;
-        
+
         if (!best.info?.success || !aniId) {
           setAnikaiEpisodes([]);
           return;
@@ -582,24 +598,24 @@ export default function Watch() {
     const handleMessage = (event) => {
       let data = event.data;
       if (typeof data === "string") {
-        try { data = JSON.parse(data); } catch { 
+        try { data = JSON.parse(data); } catch {
           // Handle raw string events like "ended" or "complete"
           if (data === "ended" || data === "video_ended" || data === "complete") {
             if (autoNextRef.current) goNextEpisode();
           }
-          return; 
+          return;
         }
       }
 
       if (!data) return;
 
       // Deep event checking for various player implementations
-      const isComplete = 
-        data.event === "complete" || 
-        data.event === "onComplete" || 
-        data.event === "ended" || 
+      const isComplete =
+        data.event === "complete" ||
+        data.event === "onComplete" ||
+        data.event === "ended" ||
         data.event === "finish" ||
-        data.type === "complete" || 
+        data.type === "complete" ||
         data.type === "ended" ||
         data.status === "completed" ||
         data.status === "finished" ||
@@ -695,7 +711,7 @@ export default function Watch() {
             } else {
               urlObj.searchParams.set("muted", "0");
             }
- 
+
             // FORCE REFRESH: Append a hash to ensure unique URL per language
             // This forces React to destroy the iframe and create a new one.
             const finalUrl = `${urlObj.toString()}#lang=${playerLang}`;
@@ -748,7 +764,7 @@ export default function Watch() {
       <div className="min-h-screen bg-[#111] flex flex-col items-center justify-center text-white p-6 text-center">
         <h1 className="text-2xl font-bold mb-2">Anime Not Found</h1>
         <p className="text-white/40 text-sm max-w-md">
-          We couldn't retrieve the details for this anime (ID: {id}). 
+          We couldn't retrieve the details for this anime (ID: {id}).
           This could be a connectivity issue with the AniList API or an invalid ID.
         </p>
         <div className="mt-8 p-4 bg-white/5 rounded border border-white/10 text-[10px] font-mono text-left">
@@ -798,15 +814,12 @@ export default function Watch() {
               {/* Integrated Loader & Error Overlay with Anime Background */}
               {((streamLoading || (streamUrl && !iframeLoaded)) || (!streamLoading && (!streamUrl || fetchError))) && (
                 <div className="absolute inset-0 z-20 group">
-                  {/* Dynamic Episode Image Background */}
-                  {currentEpisodeImage && (
-                    <img
-                      src={currentEpisodeImage}
-                      alt="Poster"
-                      key={activeEpisode} // Trigger re-animation on episode change
-                      className="absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-700 brightness-[0.4] animate-in fade-in fill-mode-both"
-                    />
-                  )}
+                  <img
+                    src={currentEpisodeImage}
+                    alt="Poster"
+                    key={activeEpisode} // Trigger re-animation on episode change
+                    className={`absolute inset-0 w-full h-full object-cover z-0 transition-all duration-700 animate-in fade-in fill-mode-both ${fetchError || (!streamLoading && !streamUrl) ? 'brightness-[0.7]' : 'brightness-[0.4]'}`}
+                  />
 
                   {/* Content Container */}
                   <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-8 text-center">
@@ -816,7 +829,7 @@ export default function Watch() {
                         <div className="w-14 h-14 border-[3px] border-red-600 border-t-transparent rounded-full animate-spin shadow-[0_0_20px_rgba(220,38,38,0.5)]"></div>
                         <div className="space-y-1">
                           <p className="text-white text-[12px] font-black tracking-[0.4em] uppercase">
-                            {streamLoading ? "Loading Source" : "Initializing Player"}
+                            {streamLoading ? "Loading Source" : ""}
                           </p>
                           <p className="text-white/40 text-[9px] font-bold uppercase tracking-widest animate-pulse">
                             Please wait a moment...
@@ -826,20 +839,11 @@ export default function Watch() {
                     ) : (
                       /* ERROR / NO STREAM STATE */
                       <div className="animate-in fade-in zoom-in-95 duration-300">
-                        <div className="space-y-1 mb-8">
-                          <p className="text-white/40 text-[10px] font-black uppercase tracking-[0.4em] bg-black/40 px-6 py-3 rounded-full border border-white/5 backdrop-blur-md">
-                            {fetchError ? "Fetching server Please wait" : "Stream Offline"}
-                          </p>
-                        </div>
+                        {/* No text badge here, just the background banner is visible */}
                       </div>
                     )}
                   </div>
 
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/20 text-[9px] font-bold uppercase tracking-[0.3em] flex items-center gap-2">
-                    <span className="w-1 h-1 bg-white/20 rounded-full" />
-                    {fetchError ? "Try switching to backup mirrors above" : "Enjoy High Quality Streaming"}
-                    <span className="w-1 h-1 bg-white/20 rounded-full" />
-                  </div>
                 </div>
               )}
 
@@ -1119,24 +1123,23 @@ export default function Watch() {
                           se => se.title && /Episode\s+(\d+)/i.test(se.title) && parseInt(se.title.match(/Episode\s+(\d+)/i)[1]) === ep
                         ) || anime?.streamingEpisodes?.[ep - 1];
                         const title = epData?.title || aniListEp?.title?.replace(/^Episode \d+\s*-\s*/i, '') || kitsuEpisodes?.[ep]?.title || kitsuEpisodes?.[String(ep)]?.title || `Episode ${ep}`;
-                        
+
                         // FIX: Detect if AniList thumbnail is just a placeholder (same as show banner/cover)
                         const isPlaceholder = (url) => {
                           if (!url) return true;
                           return url === anime?.bannerImage || url === anime?.coverImage?.large;
                         };
 
-                        // Priority: 
-                        // 1. Jikan (MAL) Image (Best for unique episode stills)
-                        // 2. Kitsu Fallback (Excellent second source)
+                        // 1. Kitsu (Best for unique screenshots / Netflix feel)
+                        // 2. Jikan (MAL) Image
                         // 3. AniList (Only if it's NOT a placeholder)
                         // 4. Fallback to anime banner
-                        const thumbnail = epData?.images?.jpg?.image_url 
-                                       || kitsuEpisodes?.[ep]?.image 
-                                       || kitsuEpisodes?.[String(ep)]?.image
-                                       || (!isPlaceholder(aniListEp?.thumbnail) && aniListEp?.thumbnail)
-                                       || anime?.bannerImage 
-                                       || anime?.coverImage?.large;
+                        const thumbnail = kitsuEpisodes?.[ep]?.image
+                          || kitsuEpisodes?.[String(ep)]?.image
+                          || epData?.images?.jpg?.image_url
+                          || (!isPlaceholder(aniListEp?.thumbnail) && aniListEp?.thumbnail)
+                          || anime?.bannerImage
+                          || anime?.coverImage?.large;
 
                         return (
                           <button
@@ -1384,33 +1387,48 @@ export default function Watch() {
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Redesigned Emoji Rating */}
-            <div className="bg-[#0d0d0d] border border-white/5 p-8 rounded-sm max-w-[500px] shadow-2xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                <Activity size={80} />
-              </div>
-              <div className="relative z-10 text-center space-y-8">
-                <div className="space-y-1">
-                  <p className="text-[12px] font-bold text-white/80 tracking-widest uppercase mb-1">How'd you rate this anime?</p>
-                  <p className="text-[9px] font-bold text-white/20 uppercase tracking-widest">Help the community discover great stories</p>
-                </div>
-                <div className="flex items-center justify-around gap-4 px-4">
-                  {[
-                    { emoji: "😠", label: "Boring", color: "white/20" },
-                    { emoji: "😐", label: "Decent", color: "white/20" },
-                    { emoji: "😍", label: "Masterpiece", color: "red-500", active: true }
-                  ].map((item, idx) => (
-                    <button key={idx} className="flex flex-col items-center gap-4 group/item">
-                      <div className={`w-16 h-16 bg-[#111] flex items-center justify-center text-3xl rounded-sm border border-white/5 transition-all group-hover/item:border-white/20 group-hover/item:-translate-y-2 ${item.active ? 'border-red-600/30 bg-red-600/5' : ''}`}>
-                        {item.emoji}
+              {/* High-Quality Compact Rating Section (Right Column) */}
+              <div className="flex flex-col gap-4 w-full md:w-[240px] shrink-0">
+                <div className="bg-[#0d0d0d] border border-white/5 p-5 rounded-sm shadow-2xl relative overflow-hidden group/card mt-0 md:mt-2">
+                  <div className="absolute top-0 right-0 p-2 opacity-5 group-hover/card:opacity-10 transition-opacity">
+                    <Activity size={40} />
+                  </div>
+                  <div className="relative z-10 text-center space-y-6">
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-black text-white/80 tracking-[0.2em] uppercase">Rate This Anime</p>
+                      <div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-white/20 uppercase tracking-widest leading-none">
+                        <Star size={8} className="text-yellow-500/40" fill="currentColor" />
+                        <span>Share your vibe</span>
                       </div>
-                      <span className={`text-[9px] font-bold tracking-[0.2em] uppercase ${item.active ? 'text-red-500' : 'text-white/20 group-hover/item:text-white/60'}`}>
-                        {item.label}
-                      </span>
-                    </button>
-                  ))}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      {[
+                        { emoji: "😠", label: "Boring", active: false },
+                        { emoji: "😐", label: "Decent", active: false },
+                        { emoji: "😍", label: "Masterpiece", active: true }
+                      ].map((item, idx) => (
+                        <button key={idx} className="flex flex-col items-center gap-2 group/item flex-1">
+                          <div className={`w-12 h-12 bg-[#111] flex items-center justify-center text-2xl rounded-[3px] border border-white/5 transition-all duration-300 group-hover/item:border-white/20 group-hover/item:-translate-y-1 ${item.active ? 'border-red-600/40 bg-red-600/5 shadow-[0_0_15px_rgba(220,38,38,0.1)]' : ''}`}>
+                            {item.emoji}
+                          </div>
+                          <span className={`text-[8px] font-black tracking-widest uppercase transition-colors duration-300 ${item.active ? 'text-red-500' : 'text-white/20 group-hover/item:text-white/60'}`}>
+                            {item.label}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Optional Social Stats (Simplified for Right Column feel) */}
+                <div className="flex items-center justify-between px-2 text-[10px] font-bold uppercase tracking-widest text-white/20">
+                  <div className="flex items-center gap-2">
+                    <Heart size={10} className="text-red-600/40" />
+                    <span>8.2k Likes</span>
+                  </div>
+                  <span>1.2k Reviews</span>
                 </div>
               </div>
             </div>
@@ -1451,7 +1469,7 @@ export default function Watch() {
                   <div className="h-6 w-1 bg-red-600 rounded-full" />
                   <h2 className="text-[14px] font-bold tracking-[0.3em] text-white uppercase">You May Also Like</h2>
                 </header>
-                
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 sm:gap-4 md:gap-5">
                   {anime.recommendations.nodes.slice(0, 24).map((node, i) => {
                     const rec = node.mediaRecommendation;
