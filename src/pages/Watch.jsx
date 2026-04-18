@@ -7,6 +7,7 @@ import { resolveAnikaiMatch, resolveAniwatchMatch, scoreMetadata } from "../serv
 import { useLanguage } from "../context/LanguageContext";
 import { useUserList } from "../context/UserListContext";
 import Navbar from "../components/layout/Navbar";
+import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
 import SkeletonCard from "../components/common/SkeletonCard";
 import NextEpisodeBanner from "../components/common/NextEpisodeBanner";
@@ -1579,37 +1580,8 @@ export default function Watch() {
           </section>
         )}
 
-        {/* 9. Share Footer */}
-        {!isFocusMode && (
-          <footer className="py-12 lg:py-20 mt-6 lg:mt-10 border-t border-white/5 animate-in fade-in duration-1000">
-            <div className="relative bg-[#0d0d0d] border border-white/5 p-6 lg:p-12 rounded-sm overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity rotate-12 hidden lg:block">
-                <Share2 size={120} />
-              </div>
-              <div className="relative z-10 text-center space-y-8 max-w-2xl mx-auto">
-                <div className="space-y-2">
-                  <h3 className="text-white font-bold text-lg lg:text-2xl uppercase tracking-[0.4em]">Propagate the Culture</h3>
-                  <p className="text-white/20 text-[11px] font-bold uppercase tracking-[0.2em] leading-relaxed">
-                    Anigo thrives on community growth. Share this experience with others to help us maintain high-fidelity streams.
-                  </p>
-                </div>
-                <div className="flex flex-wrap justify-center gap-4">
-                  {[
-                    { name: "Facebook", bg: "hover:bg-[#1877F2]/10 hover:border-[#1877F2]/30" },
-                    { name: "Twitter", bg: "hover:bg-[#1DA1F2]/10 hover:border-[#1DA1F2]/30" },
-                    { name: "Reddit", bg: "hover:bg-[#FF4500]/10 hover:border-[#FF4500]/30" },
-                    { name: "WhatsApp", bg: "hover:bg-[#25D366]/10 hover:border-[#25D366]/30" },
-                    { name: "Telegram", bg: "hover:bg-[#0088cc]/10 hover:border-[#0088cc]/30" }
-                  ].map(platform => (
-                    <button key={platform.name} className={`px-8 py-3 bg-white/5 text-[10px] font-bold uppercase tracking-[0.3em] rounded-sm transition-all border border-white/5 ${platform.bg}`}>
-                      {platform.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </footer>
-        )}
+        {/* 9. Global Footer */}
+        {!isFocusMode && <Footer />}
       </main>
 
       {/* Skip Time Modal */}
