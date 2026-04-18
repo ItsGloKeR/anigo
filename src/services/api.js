@@ -1,0 +1,594 @@
+// ==========================================
+// ANILIST-ONLY API ENGINE
+// All data powered by AniList GraphQL
+// All network requests use Axios exclusively
+// ==========================================
+
+import axios from "axios";
+
+const ANILIST_URL = import.meta.env.VITE_ANILIST_API;
+const ANIGO_SERVER = import.meta.env.VITE_ANIGO_SERVER || "http://localhost:5000";
+
+// ==========================================
+// ANILIST CORE
+// ==========================================
+
+async function fetchFromAniList(query, variables = {}) {
+  try {
+    const { data } = await axios.post(ANILIST_URL, { query, variables }, {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (data.errors) {
+      console.error("AniList GraphQL Errors:", data.errors);
+      return { media: [], pageInfo: { total: 0 } };
+    }
+    return data.data?.Page || { media: [], pageInfo: { total: 0 } };
+  } catch (err) {
+    console.error("AniList Fetch Error:", err);
+    return { media: [], pageInfo: { total: 0 } };
+  }
+}
+
+// ==========================================
+// BROWSE QUERIES
+// ==========================================
+
+const ANIME_QUERY = `
+  query ($page: Int, $sort: [MediaSort]) {
+    Page(page: $page, perPage: 30) {
+      media(type: ANIME, sort: $sort) {
+        id
+        title { romaji english native }
+        coverImage { large medium }
+        format
+        episodes
+        seasonYear
+        nextAiringEpisode {
+          episode
+        }
+        averageScore
+        favourites
+        status
+        isAdult
+      }
+    }
+  }
+`;
+
+export async function getTrendingAnime() {
+  const res = await fetchFromAniList(ANIME_QUERY, { page: 1, sort: ["TRENDING_DESC"] });
+  return res.media || [];
+}
+
+export async function getPopularAnime() {
+  const res = await fetchFromAniList(ANIME_QUERY, { page: 1, sort: ["POPULARITY_DESC"] });
+  return res.media || [];
+}
+
+export async function getNewReleases() {
+  const res = await fetchFromAniList(ANIME_QUERY, { page: 1, sort: ["START_DATE_DESC", "TRENDING_DESC"] });
+  return res.media || [];
+}
+
+export const SEARCH_QUERY = `
+  query ($search: String) {
+    Page(page: 1, perPage: 10) {
+      media(type: ANIME, search: $search) {
+        id
+        title { romaji english native }
+        coverImage { medium large }
+        episodes
+        nextAiringEpisode {
+          episode
+        }
+        format
+        seasonYear
+        averageScore
+        isAdult
+      }
+    }
+  }
+`;
+
+export async function searchAnime(query) {
+  if (!query) return [];
+  const res = await fetchFromAniList(SEARCH_QUERY, { search: query });
+  return res.media || [];
+}
+
+export async function getGenres() {
+  const query = `{ GenreCollection }`;
+  try {
+    const { data } = await axios.post(ANILIST_URL, { query }, {
+      headers: { "Content-Type": "application/json" },
+    });
+    return data.data?.GenreCollection || [];
+  } catch (err) {
+    console.error("Error fetching genres:", err);
+    return [];
+  }
+}
+
+export const BROWSE_QUERY = `
+  query ($page: Int, $search: String, $format_in: [MediaFormat], $sort: [MediaSort], $seasonYear: Int, $status: MediaStatus, $genre_in: [String], $tag_in: [String], $season: MediaSeason, $country: CountryCode) {
+    Page(page: $page, perPage: 30) {
+      pageInfo { total }
+      media(type: ANIME, search: $search, format_in: $format_in, sort: $sort, seasonYear: $seasonYear, status: $status, genre_in: $genre_in, tag_in: $tag_in, season: $season, countryOfOrigin: $country) {
+        id
+        title { romaji english native }
+        coverImage { large medium }
+        format
+        episodes
+        seasonYear
+        nextAiringEpisode {
+          episode
+        }
+        averageScore
+        status
+        isAdult
+      }
+    }
+  }
+`;
+
+export function getBrowseAnime(variables) {
+  return fetchFromAniList(BROWSE_QUERY, variables);
+}
+
+const SEASONAL_QUERY = `
+  query ($season: MediaSeason, $seasonYear: Int, $sort: [MediaSort]) {
+    Page(page: 1, perPage: 30) {
+      media(type: ANIME, season: $season, seasonYear: $seasonYear, sort: $sort) {
+        id
+        title { romaji english native }
+        coverImage { large medium }
+        format
+        episodes
+        nextAiringEpisode {
+          episode
+        }
+        averageScore
+        status
+        isAdult
+      }
+    }
+  }
+`;
+
+export async function getPopularThisSeason() {
+  const date = new Date();
+  const month = date.getMonth();
+  const year = date.getFullYear();
+  
+  let season = "WINTER";
+  if (month >= 2 && month <= 4) season = "SPRING";
+  else if (month >= 5 && month <= 7) season = "SUMMER";
+  else if (month >= 8 && month <= 10) season = "FALL";
+  
+  const res = await fetchFromAniList(SEASONAL_QUERY, { 
+    season, 
+    seasonYear: year,
+    sort: ["POPULARITY_DESC"] 
+  });
+  return res.media || [];
+}
+
+export async function getTopRatedAnime() {
+  const res = await fetchFromAniList(ANIME_QUERY, { page: 1, sort: ["SCORE_DESC"] });
+  return res.media || [];
+}
+
+export async function getUpcomingAnime() {
+  const res = await fetchFromAniList(ANIME_QUERY, { 
+    page: 1, 
+    sort: ["POPULARITY_DESC"],
+    status: "NOT_YET_RELEASED"
+  });
+  return res.media || [];
+}
+
+const SCHEDULE_QUERY = `
+  query ($page: Int, $airingAt_greater: Int, $airingAt_lesser: Int) {
+    Page(page: $page, perPage: 50) {
+      pageInfo { total hasNextPage }
+      airingSchedules(airingAt_greater: $airingAt_greater, airingAt_lesser: $airingAt_lesser, sort: TIME) {
+        id
+        airingAt
+        episode
+        media {
+          id
+          title { romaji english native }
+          coverImage { medium }
+          format
+          popularity
+          isAdult
+        }
+      }
+    }
+  }
+`;
+
+export async function getSchedule(startTimestamp, endTimestamp) {
+  try {
+    const { data } = await axios.post(ANILIST_URL, {
+      query: SCHEDULE_QUERY,
+      variables: {
+        page: 1,
+        airingAt_greater: startTimestamp,
+        airingAt_lesser: endTimestamp,
+      },
+    }, {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (data.errors) {
+      console.error("AniList Schedule Errors:", data.errors);
+      return [];
+    }
+    return data.data?.Page?.airingSchedules || [];
+  } catch (err) {
+    console.error("Schedule Fetch Error:", err);
+    return [];
+  }
+}
+
+
+// ==========================================
+// ANIME DETAIL (AniList-powered)
+// Deep relations for season navigation
+// ==========================================
+
+const DETAIL_QUERY = `
+fragment RelationFields on Media {
+  id
+  idMal
+  title { romaji english native }
+  coverImage { large }
+  episodes
+  format
+  type
+  startDate { year month day }
+}
+
+query ($id: Int) {
+  Media(id: $id, type: ANIME) {
+    id
+    idMal
+    title { romaji english native }
+    coverImage { large extraLarge }
+    bannerImage
+    description
+    format
+    episodes
+    status
+    averageScore
+    genres
+    seasonYear
+    isAdult
+    countryOfOrigin
+    startDate { year month day }
+    endDate { year month day }
+    duration
+    synonyms
+    studios {
+      edges {
+        isMain
+        node { name }
+      }
+    }
+    nextAiringEpisode {
+      episode
+    }
+    streamingEpisodes {
+      title
+      thumbnail
+    }
+    relations {
+      edges {
+        relationType
+        node {
+          ...RelationFields
+          relations {
+            edges {
+              relationType
+              node {
+                ...RelationFields
+                relations {
+                  edges {
+                    relationType
+                    node {
+                      ...RelationFields
+                      relations {
+                        edges {
+                          relationType
+                          node {
+                            ...RelationFields
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    trailer {
+      id
+      site
+      thumbnail
+    }
+    characters(sort: [ROLE, RELEVANCE], perPage: 12) {
+      edges {
+        role
+        node {
+          id
+          name { full userPreferred }
+          image { large }
+        }
+        voiceActors(language: JAPANESE, sort: [RELEVANCE]) {
+          id
+          name { full userPreferred }
+          image { large }
+        }
+      }
+    }
+    staff(perPage: 6, sort: [RELEVANCE]) {
+      edges {
+        role
+        node {
+          id
+          name { full userPreferred }
+          image { large }
+        }
+      }
+    }
+    recommendations(sort: [RATING_DESC], perPage: 24) {
+      nodes {
+        mediaRecommendation {
+          id
+          title { romaji english native }
+          coverImage { large }
+          format
+          episodes
+          averageScore
+        }
+      }
+    }
+  }
+}
+`;
+
+export async function getAnimeDetails(anilistId) {
+  try {
+    const { data } = await axios.post("https://graphql.anilist.co", {
+      query: DETAIL_QUERY,
+      variables: { id: anilistId },
+    }, {
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (data.errors) {
+      console.error("AniList Detail Errors:", data.errors);
+      return null;
+    }
+
+    const media = data.data?.Media;
+    if (!media) return null;
+
+    // Flatten deep relations for season navigation
+    if (media.relations?.edges) {
+      const flatRelationsMap = new Map();
+
+      const flattenEdges = (edges) => {
+        if (!edges) return;
+        edges.forEach(edge => {
+          if (!edge.node) return;
+          // IMPORTANT: Only include ANIME media. Clicking on Manga/LN causes "Anime Not Found" errors.
+          if (edge.node.type !== 'ANIME') return;
+
+          if (!flatRelationsMap.has(edge.node.id) && edge.node.id !== media.id) {
+            const cleanNode = { ...edge.node };
+            delete cleanNode.relations;
+            flatRelationsMap.set(edge.node.id, {
+              relationType: edge.relationType,
+              node: cleanNode
+            });
+          }
+          if (edge.node.relations?.edges) {
+            flattenEdges(edge.node.relations.edges);
+          }
+        });
+      };
+
+      flattenEdges(media.relations.edges);
+      media.relations.edges = Array.from(flatRelationsMap.values());
+    }
+
+    return media;
+  } catch (err) {
+    console.error("getAnimeDetails Error:", err);
+    return null;
+  }
+}
+
+
+// ==========================================
+// ANIWATCH MAPPING (via MalSync + aniwatchtv.to)
+// Step 1: MAL ID → Aniwatch numeric ID (MalSync)
+// Step 2: Aniwatch ID → Episode IDs (aniwatchtv.to)
+// ==========================================
+
+export async function getAniwatchId(keyword) {
+  if (!keyword) return [];
+  try {
+    const { data } = await axios.get(`${PYTHON_API}/api/aniwatch/search`, {
+      params: { keyword },
+    });
+    return data.success ? data.results : [];
+  } catch (err) {
+    console.error("Aniwatch dynamic lookup failed:", err);
+    return [];
+  }
+}
+
+export async function getAnikaiDetails(keyword) {
+  if (!keyword) return null;
+  try {
+    const { data: searchData } = await axios.get(`${PYTHON_API}/api/anikai/search`, {
+      params: { keyword }
+    });
+    if (searchData.success && searchData.results && searchData.results.length > 0) {
+      const slug = searchData.results[0].slug;
+      const { data: infoData } = await axios.get(`${PYTHON_API}/api/anikai/info/${slug}`);
+      if (infoData.success) {
+        return infoData;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.error("Anikai info details failed:", err);
+    return null;
+  }
+}
+
+export async function getAniwatchDetails(keyword) {
+  if (!keyword) return null;
+  try {
+    const { data: searchData } = await axios.get(`${PYTHON_API}/api/aniwatch/search`, {
+      params: { keyword }
+    });
+    if (searchData.success && searchData.aniwatch_id) {
+      const { data: infoData } = await axios.get(`${PYTHON_API}/api/aniwatch/info/${searchData.aniwatch_id}`);
+      if (infoData.success) {
+        return infoData;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.error("Aniwatch info details failed:", err);
+    return null;
+  }
+}
+
+const PYTHON_API = import.meta.env.PROD ? "" : "http://localhost:5000";
+
+export async function getAniwatchEpisodes(aniwatchId) {
+  if (!aniwatchId) return [];
+  try {
+    const { data } = await axios.get(`${PYTHON_API}/api/aniwatch/episodes/${aniwatchId}`);
+    if (data.success && data.episodes) {
+      return data.episodes;
+    }
+    return [];
+  } catch (err) {
+    console.error("Aniwatch episodes fetch failed:", err);
+    return [];
+  }
+}
+
+
+// ==========================================
+// MAL EPISODE TITLES (lightweight)
+// Only used for episode names — everything else is AniList
+// ==========================================
+
+export async function getEpisodeTitles(malId) {
+  if (!malId) return [];
+  try {
+    let allEpisodes = [];
+    let page = 1;
+    let hasNextPage = true;
+
+    // Fetch up to 3 pages (300 episodes) to respect rate limits
+    while (hasNextPage && page <= 3) {
+      try {
+        const { data: json } = await axios.get(`https://api.jikan.moe/v4/anime/${malId}/episodes`, {
+          params: { page },
+        });
+
+        if (json.data && json.data.length > 0) {
+          allEpisodes = [...allEpisodes, ...json.data];
+          hasNextPage = json.pagination?.has_next_page;
+          page++;
+        } else {
+          hasNextPage = false;
+        }
+      } catch (err) {
+        if (err.response?.status === 429) {
+          // Rate limited — wait and retry once
+          await new Promise(r => setTimeout(r, 1200));
+          try {
+            const { data: retryJson } = await axios.get(`https://api.jikan.moe/v4/anime/${malId}/episodes`, {
+              params: { page },
+            });
+            if (retryJson.data?.length > 0) {
+              allEpisodes = [...allEpisodes, ...retryJson.data];
+              hasNextPage = retryJson.pagination?.has_next_page;
+              page++;
+            } else {
+              hasNextPage = false;
+            }
+          } catch {
+            hasNextPage = false;
+          }
+        } else {
+          hasNextPage = false;
+        }
+      }
+    }
+    return allEpisodes;
+  } catch (err) {
+    console.error("MAL Episodes Fetch Error:", err);
+    return [];
+  }
+}
+
+export async function getJikanAnimeDetails(malId) {
+  if (!malId) return null;
+  try {
+    const { data } = await axios.get(`https://api.jikan.moe/v4/anime/${malId}`);
+    return data?.data || null;
+  } catch (err) {
+    console.error("Jikan Anime Details Fetch Error:", err);
+    return null;
+  }
+}
+// ==========================================
+// CONSUMET BACKEND (Sub/Dub Availability)
+// ==========================================
+
+/**
+ * Check if an anime has Sub and/or Dub available via the Consumet backend.
+ * @param {number|string} anilistId - The AniList ID of the anime
+ * @returns {Promise<{hasSub: boolean, hasDub: boolean, subCount: number, dubCount: number}>}
+ */
+export async function checkDubAvailability(anilistId) {
+  try {
+    const { data } = await axios.get(`${ANIGO_SERVER}/api/check-dub/${anilistId}`);
+    return data;
+  } catch (err) {
+    console.error("Dub check failed:", err.message);
+    // Graceful fallback: assume sub exists and allow dub toggle
+    return { hasSub: true, hasDub: true, subCount: 0, dubCount: 0 };
+  }
+}
+
+export async function getSecondaryEpisodeMeta(title, altTitle = "") {
+  if (!title && !altTitle) return {};
+  try {
+    const { data } = await axios.get(`${ANIGO_SERVER}/api/meta/episodes`, {
+      params: { 
+        title,
+        alt_title: altTitle
+      },
+    });
+    return data;
+  } catch (err) {
+    console.error("Secondary metadata fetch failed:", err);
+    return {};
+  }
+}
