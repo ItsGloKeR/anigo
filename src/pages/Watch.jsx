@@ -38,7 +38,12 @@ import {
   Timer,
   Heart,
   Star,
-  Calendar
+  Calendar,
+  Frown,
+  Smile,
+  Sparkles,
+  Meh,
+  CheckCircle2
 } from "lucide-react";
 
 export default function Watch() {
@@ -78,6 +83,7 @@ export default function Watch() {
   // Modal states
   const [showSkipModal, setShowSkipModal] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
+  const [userRating, setUserRating] = useState(() => getSafeStorage(`rating_${id}`, null));
   const [skipTimes, setSkipTimes] = useState(() => getSafeStorage(`skipTimes_${id}`, {}));
 
   // Sync settings to localStorage
@@ -85,6 +91,11 @@ export default function Watch() {
   useEffect(() => localStorage.setItem("autoPlay", JSON.stringify(autoPlay)), [autoPlay]);
   useEffect(() => localStorage.setItem("autoSkip", JSON.stringify(autoSkip)), [autoSkip]);
   useEffect(() => localStorage.setItem(`skipTimes_${id}`, JSON.stringify(skipTimes)), [skipTimes, id]);
+  useEffect(() => {
+    if (userRating) {
+      localStorage.setItem(`rating_${id}`, JSON.stringify(userRating));
+    }
+  }, [userRating, id]);
 
   const EPISODES_PER_PAGE = 50;
   const GOGO_SLUG_OVERRIDES = {};
@@ -1388,47 +1399,48 @@ export default function Watch() {
                 </div>
               </div>
 
-              {/* High-Quality Compact Rating Section (Right Column) */}
-              <div className="flex flex-col gap-4 w-full md:w-[240px] shrink-0">
-                <div className="bg-[#0d0d0d] border border-white/5 p-5 rounded-sm shadow-2xl relative overflow-hidden group/card mt-0 md:mt-2">
-                  <div className="absolute top-0 right-0 p-2 opacity-5 group-hover/card:opacity-10 transition-opacity">
-                    <Activity size={40} />
-                  </div>
-                  <div className="relative z-10 text-center space-y-6">
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-black text-white/80 tracking-[0.2em] uppercase">Rate This Anime</p>
-                      <div className="flex items-center justify-center gap-1.5 text-[9px] font-bold text-white/20 uppercase tracking-widest leading-none">
-                        <Star size={8} className="text-yellow-500/40" fill="currentColor" />
-                        <span>Share your vibe</span>
+              {/* Pixel-Perfect Rating Section (Right Column) */}
+              <div className="flex flex-col gap-4 w-full md:w-[280px] lg:w-[320px] shrink-0">
+                <div className="bg-[#0d0d0d] border border-white/5 p-7 rounded-sm shadow-xl relative mt-0 md:mt-2 min-h-[160px] flex flex-col items-center justify-center">
+                  
+                  {userRating ? (
+                    <div className="text-center py-4 animate-in zoom-in duration-500">
+                      <div className="flex justify-center mb-3">
+                        <CheckCircle2 size={28} className="text-white/40" />
                       </div>
+                      <p className="text-[14px] font-medium text-white/80 mb-1">Thank you for rating!</p>
+                      <p className="text-[12px] text-white/20">Your feedback is appreciated.</p>
                     </div>
+                  ) : (
+                    <>
+                      <div className="text-center mb-6">
+                        <h3 className="text-[18px] font-medium text-white/80 mb-1">How'd you rate this anime?</h3>
+                        <p className="text-[13px] text-white/30 font-medium">
+                          {resolvedInfo.mal_score || "8.58"} / {resolvedInfo.scored_by?.toLocaleString() || "1,221"} reviews
+                        </p>
+                      </div>
 
-                    <div className="flex items-center justify-between gap-2 px-1">
-                      {[
-                        { emoji: "😠", label: "Boring", active: false },
-                        { emoji: "😐", label: "Decent", active: false },
-                        { emoji: "😍", label: "Masterpiece", active: true }
-                      ].map((item, idx) => (
-                        <button key={idx} className="flex flex-col items-center gap-2 group/item flex-1">
-                          <div className={`w-12 h-12 bg-[#111] flex items-center justify-center text-2xl rounded-[3px] border border-white/5 transition-all duration-300 group-hover/item:border-white/20 group-hover/item:-translate-y-1 ${item.active ? 'border-red-600/40 bg-red-600/5 shadow-[0_0_15px_rgba(220,38,38,0.1)]' : ''}`}>
-                            {item.emoji}
-                          </div>
-                          <span className={`text-[8px] font-black tracking-widest uppercase transition-colors duration-300 ${item.active ? 'text-red-500' : 'text-white/20 group-hover/item:text-white/60'}`}>
-                            {item.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Optional Social Stats (Simplified for Right Column feel) */}
-                <div className="flex items-center justify-between px-2 text-[10px] font-bold uppercase tracking-widest text-white/20">
-                  <div className="flex items-center gap-2">
-                    <Heart size={10} className="text-red-600/40" />
-                    <span>8.2k Likes</span>
-                  </div>
-                  <span>1.2k Reviews</span>
+                      <div className="flex items-center gap-1 w-full px-2">
+                        {[
+                          { icon: Frown, val: "boring" },
+                          { icon: Smile, val: "decent" },
+                          { icon: Smile, val: "masterpiece", isHappy: true }
+                        ].map((item, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setUserRating(item.val)}
+                            className="flex-1 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.02] h-20 flex items-center justify-center transition-all duration-300 rounded-[2px] group"
+                          >
+                            <item.icon 
+                              size={28} 
+                              strokeWidth={1.5}
+                              className={`text-white/30 group-hover:text-white/80 transition-colors ${item.isHappy ? 'scale-110' : ''}`} 
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1445,16 +1457,16 @@ export default function Watch() {
                   <div className="h-6 w-1 bg-red-600 rounded-full" />
                   <h2 className="text-[14px] font-bold tracking-[0.3em] text-white uppercase">Character Cast</h2>
                 </header>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
                   {anime.characters.edges.slice(0, 8).map(edge => (
                     <div key={edge.node.id} className="group flex bg-[#0d0d0d] rounded-sm overflow-hidden border border-white/5 h-20 transition-all hover:bg-[#111] hover:border-red-600/30">
-                      <div className="relative w-16 h-full overflow-hidden">
+                      <div className="relative w-12 sm:w-16 h-full overflow-hidden shrink-0">
                         <img src={edge.node.image?.large} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                         <div className="absolute inset-0 bg-red-600/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
-                      <div className="flex flex-col justify-center px-5 flex-1 space-y-0.5">
-                        <span className="text-[13px] font-bold text-white transition-colors group-hover:text-red-500">{edge.node.name?.userPreferred}</span>
-                        <span className="text-[9px] font-bold text-white/20 uppercase tracking-[0.2em]">{edge.role}</span>
+                      <div className="flex flex-col justify-center px-3 sm:px-5 flex-1 space-y-0.5 min-w-0">
+                        <span className="text-[11px] sm:text-[13px] font-bold text-white transition-colors group-hover:text-red-500 truncate">{edge.node.name?.userPreferred}</span>
+                        <span className="text-[8px] sm:text-[9px] font-bold text-white/20 uppercase tracking-[0.2em] truncate">{edge.role}</span>
                       </div>
                     </div>
                   ))}
