@@ -610,11 +610,13 @@ kitsu = KitsuScraper()
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.route("/", methods=["GET"])
+@app.route("/api", methods=["GET"])
 def index():
     return jsonify({
         "success": True,
         "api": "Anigo Unified Scraper API",
-        "version": "3.0.0",
+        "status": "online",
+        "version": "3.0.1",
         "engines": ["anikai", "aniwatch"],
         "endpoints": {
             "/api/anikai/search?keyword=": "Search Anikai",

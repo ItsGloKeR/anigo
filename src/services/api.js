@@ -6,8 +6,9 @@
 
 import axios from "axios";
 
-const ANILIST_URL = import.meta.env.VITE_ANILIST_API;
-const ANIGO_SERVER = import.meta.env.VITE_ANIGO_SERVER || "http://localhost:5000";
+const ANILIST_URL = import.meta.env.VITE_ANILIST_API || "https://graphql.anilist.co";
+const ANIGO_SERVER = import.meta.env.PROD ? "" : (import.meta.env.VITE_ANIGO_SERVER || "http://localhost:5000");
+const PYTHON_API = import.meta.env.PROD ? "" : "http://localhost:5000";
 
 // ==========================================
 // ANILIST CORE
@@ -372,12 +373,15 @@ export async function getAnimeDetails(anilistId) {
     });
 
     if (data.errors) {
-      console.error("AniList Detail Errors:", data.errors);
+      console.error("AniList Detail Errors [ID:", anilistId, "]:", data.errors);
       return null;
     }
 
     const media = data.data?.Media;
-    if (!media) return null;
+    if (!media) {
+      console.warn("AniList Detail: No media found for ID:", anilistId);
+      return null;
+    }
 
     // Flatten deep relations for season navigation
     if (media.relations?.edges) {
@@ -474,7 +478,7 @@ export async function getAniwatchDetails(keyword) {
   }
 }
 
-const PYTHON_API = import.meta.env.PROD ? "" : "http://localhost:5000";
+
 
 export async function getAniwatchEpisodes(aniwatchId) {
   if (!aniwatchId) return [];
