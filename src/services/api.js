@@ -114,8 +114,8 @@ export async function getGenres() {
 }
 
 export const BROWSE_QUERY = `
-  query ($page: Int, $search: String, $format_in: [MediaFormat], $sort: [MediaSort], $seasonYear: Int, $status: MediaStatus, $genre_in: [String], $tag_in: [String], $season: MediaSeason, $country: CountryCode) {
-    Page(page: $page, perPage: 30) {
+  query ($page: Int, $perPage: Int, $search: String, $format_in: [MediaFormat], $sort: [MediaSort], $seasonYear: Int, $status: MediaStatus, $genre_in: [String], $tag_in: [String], $season: MediaSeason, $country: CountryCode) {
+    Page(page: $page, perPage: $perPage) {
       pageInfo { total currentPage lastPage hasNextPage perPage }
       media(type: ANIME, search: $search, format_in: $format_in, sort: $sort, seasonYear: $seasonYear, status: $status, genre_in: $genre_in, tag_in: $tag_in, season: $season, countryOfOrigin: $country) {
         id
@@ -124,6 +124,8 @@ export const BROWSE_QUERY = `
         format
         episodes
         seasonYear
+        genres
+        tags { name }
         nextAiringEpisode {
           airingAt
           episode
@@ -138,6 +140,112 @@ export const BROWSE_QUERY = `
 
 export function getBrowseAnime(variables) {
   return fetchFromAniList(BROWSE_QUERY, variables);
+}
+
+// ==========================================
+// MAL (Jikan v4) HYBRID SUPPORT
+// Used specifically for genres like Avant Garde
+// ==========================================
+
+export const MAL_GENRE_MAP = {
+  "Action": 1,
+  "Adventure": 2,
+  "Avant Garde": 5,
+  "Boys Love": 28,
+  "Comedy": 4,
+  "Demons": 6,
+  "Drama": 8,
+  "Ecchi": 9,
+  "Fantasy": 10,
+  "Girls Love": 26,
+  "Gourmet": 47,
+  "Harem": 35,
+  "Horror": 14,
+  "Isekai": 62,
+  "Iyashikei": 63,
+  "Josei": 43,
+  "Kids": 15,
+  "Magic": 16,
+  "Mahou Shoujo": 66,
+  "Martial Arts": 17,
+  "Mecha": 18,
+  "Military": 38,
+  "Music": 19,
+  "Mystery": 7,
+  "Parody": 20,
+  "Psychological": 40,
+  "Reverse Harem": 73,
+  "Romance": 22,
+  "School": 23,
+  "Sci-Fi": 24,
+  "Seinen": 42,
+  "Shoujo": 25,
+  "Shounen": 27,
+  "Slice of Life": 36,
+  "Space": 29,
+  "Sports": 30,
+  "Super Power": 31,
+  "Supernatural": 37,
+  "Suspense": 41,
+  "Thriller": 45,
+  "Vampire": 32
+};
+
+export async function getBrowseAnimeMAL(variables) {
+  const { page = 1, genres = [], search = "", status = "", sort = "popularity" } = variables;
+  
+  // Map genre names to MAL IDs
+  const malGenreIds = genres.map(g => MAL_GENRE_MAP[g]).filter(Boolean);
+  
+  let url = `https://api.jikan.moe/v4/anime?page=${page}&limit=24`;
+  if (search) url += `&q=${encodeURIComponent(search)}`;
+  if (malGenreIds.length > 0) url += `&genres=${malGenreIds.join(',')}`;
+  
+  if (status === "RELEASING") url += "&status=airing";
+  if (status === "FINISHED") url += "&status=complete";
+  
+  if (sort.includes("POPULARITY")) url += "&order_by=popularity&sort=desc";
+  else if (sort.includes("SCORE")) url += "&order_by=score&sort=desc";
+  else url += "&order_by=popularity&sort=desc";
+  
+  try {
+    const { data } = await axios.get(url);
+    return {
+      media: data.data.map(item => ({
+        id: item.mal_id,
+        idMal: item.mal_id,
+        isMAL: true,
+        title: {
+          romaji: item.title,
+          english: item.title_english || item.title,
+          native: item.title_japanese
+        },
+        coverImage: {
+          large: item.images.webp.large_image_url || item.images.jpg.large_image_url,
+          medium: item.images.webp.image_url || item.images.jpg.image_url
+        },
+        genres: [
+          ...(item.genres || []).map(g => g.name),
+          ...(item.themes || []).map(t => t.name),
+          ...(item.demographics || []).map(d => d.name)
+        ],
+        format: item.type?.toUpperCase(),
+        episodes: item.episodes,
+        seasonYear: item.year || (item.aired?.from ? new Date(item.aired.from).getFullYear() : null),
+        averageScore: item.score ? item.score * 10 : null,
+        status: item.status === "Currently Airing" ? "RELEASING" : "FINISHED",
+      })),
+      pageInfo: {
+        total: data.pagination.items.total,
+        currentPage: data.pagination.current_page,
+        lastPage: data.pagination.last_visible_page,
+        hasNextPage: data.pagination.has_next_page,
+      }
+    };
+  } catch (err) {
+    console.error("Jikan API Error:", err);
+    throw err;
+  }
 }
 
 const SEASONAL_QUERY = `
@@ -256,8 +364,8 @@ fragment RelationFields on Media {
   startDate { year month day }
 }
 
-query ($id: Int) {
-  Media(id: $id, type: ANIME) {
+query ($id: Int, $idMal: Int) {
+  Media(id: $id, idMal: $idMal, type: ANIME) {
     id
     idMal
     title { romaji english native }
@@ -368,23 +476,24 @@ query ($id: Int) {
 }
 `;
 
-export async function getAnimeDetails(anilistId) {
+export async function getAnimeDetails(id, isMal = false) {
+  const variables = isMal ? { idMal: parseInt(id) } : { id: parseInt(id) };
   try {
     const { data } = await axios.post("https://graphql.anilist.co", {
       query: DETAIL_QUERY,
-      variables: { id: anilistId },
+      variables,
     }, {
       headers: { "Content-Type": "application/json" },
     });
 
     if (data.errors) {
-      console.error("AniList Detail Errors [ID:", anilistId, "]:", data.errors);
+      console.error("AniList Detail Errors [ID:", id, "]:", data.errors);
       return null;
     }
 
     const media = data.data?.Media;
     if (!media) {
-      console.warn("AniList Detail: No media found for ID:", anilistId);
+      console.warn("AniList Detail: No media found for ID:", id);
       return null;
     }
 

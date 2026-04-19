@@ -28,7 +28,7 @@ export default function AnimeCard({ anime }) {
   return (
     <div 
       className="w-full cursor-pointer group flex flex-col"
-      onClick={() => navigate(`/watch/${anime.id}`)}
+      onClick={() => navigate(`/watch/${anime.id}${anime.isMAL ? "?mal=true" : ""}`)}
     >
       {/* Poster image container */}
       <div className="relative w-full aspect-2/3 overflow-hidden rounded-[6px] bg-[#2a2a2a] shadow-lg text-white">

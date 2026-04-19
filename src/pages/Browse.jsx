@@ -1,64 +1,48 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getBrowseAnime } from "../services/api";
+import { getBrowseAnime, getBrowseAnimeMAL } from "../services/api";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
 import SkeletonCard from "../components/common/SkeletonCard";
-import { Search, ChevronDown, ArrowDownUp, Filter, ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft } from "lucide-react";
-import { ALL_GENRES, OFFICIAL_GENRES } from "../constants/genres";
+import { Search, ChevronDown, ArrowDownUp, Filter, ChevronRight, ChevronLeft, Check, X, ChevronsRight, ChevronsLeft } from "lucide-react";
+import { ALL_GENRES, OFFICIAL_GENRES, GENRE_MAP } from "../constants/genres";
 
 export default function Browse() {
   const [searchParams, setSearchParams] = useSearchParams();
   
-  const [filters, setFilters] = useState(() => {
-    const genreParam = searchParams.get("genre");
-    const typeParam = searchParams.get("type");
-    const statusParam = searchParams.get("status");
-    const sortParam = searchParams.get("sort");
-    const searchParam = searchParams.get("search");
+  const filters = useMemo(() => {
+    const genreStr = searchParams.get("genre") || "";
+    const excludeStr = searchParams.get("exclude") || "";
+    const formatParams = searchParams.getAll("format");
 
     return {
-      search: searchParam || "",
-      formats: typeParam ? [typeParam] : [],
-      genres: genreParam ? [genreParam] : [],
-      status: statusParam || "",
-      sort: sortParam || "TRENDING_DESC",
-      year: null,
-      season: null,
-      country: "",
-      rating: null,
-      language: [],
-      excludeMyList: false,
+      search: searchParams.get("search") || "",
+      include: genreStr ? genreStr.split(",").filter(Boolean) : [],
+      exclude: excludeStr ? excludeStr.split(",").filter(Boolean) : [],
+      formats: formatParams,
+      status: searchParams.get("status") || "",
+      sort: searchParams.get("sort") || "TRENDING_DESC",
+      year: searchParams.get("year") || null,
+      season: searchParams.get("season") || null,
+      country: searchParams.get("country") || "",
+      rating: searchParams.get("rating") || null,
+      language: searchParams.getAll("language"),
+      excludeMyList: searchParams.get("excludeMyList") === "true",
     };
-  });
+  }, [searchParams]);
 
-  // Clean React 18+ pattern to sync state from external source without cascading effect renders
-  const [prevSearchString, setPrevSearchString] = useState(searchParams.toString());
-  if (searchParams.toString() !== prevSearchString) {
-    setPrevSearchString(searchParams.toString());
-    
-    const genreParam = searchParams.get("genre");
-    const typeParam = searchParams.get("type");
-    const statusParam = searchParams.get("status");
-    const sortParam = searchParams.get("sort");
-    const searchParam = searchParams.get("search");
-
-    setFilters(prev => ({
-      ...prev,
-      search: searchParam !== null ? searchParam : prev.search,
-      genres: genreParam ? [genreParam] : [],
-      formats: typeParam ? [typeParam] : [],
-      status: statusParam || "",
-      sort: sortParam || "TRENDING_DESC",
-    }));
-  }
-
-  // Pagination state
+  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
   const [page, setPage] = useState(() => parseInt(searchParams.get("page") || "1"));
 
-  // Sync page from URL
+  // Sync internal search input with URL (e.g., when clearing/resetting)
+  useEffect(() => {
+    const fromUrl = searchParams.get("search") || "";
+    if (fromUrl !== searchInput) setSearchInput(fromUrl);
+  }, [searchParams]);
+
+  // Sync page state when URL changes
   useEffect(() => {
     const p = parseInt(searchParams.get("page") || "1");
     if (p !== page) setPage(p);
@@ -73,16 +57,25 @@ export default function Browse() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [openDropdown, setOpenDropdown] = useState(null);
+  const [consecutiveEmptyPages, setConsecutiveEmptyPages] = useState(0);
 
-  // Debounce search query
+  // Debounce search query to URL - Optimized to avoid conflicts
   useEffect(() => {
+    const currentUrlSearch = searchParams.get("search") || "";
+    if (searchInput === currentUrlSearch) return;
+    
     const timer = setTimeout(() => {
-      setDebouncedSearch(filters.search);
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        if (!searchInput) next.delete("search");
+        else next.set("search", searchInput);
+        next.set("page", "1");
+        return next;
+      });
     }, 500);
     return () => clearTimeout(timer);
-  }, [filters.search]);
+  }, [searchInput]);
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -99,22 +92,35 @@ export default function Browse() {
 
   // Fetch Browse Results
   const { data: result = { media: [], pageInfo: { total: 0 } }, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ["browse", page, debouncedSearch, filters.formats, filters.genres, filters.status, filters.sort, filters.year, filters.season, filters.country, filters.rating],
+    queryKey: ["browse", page, filters.search, filters.formats, filters.include, filters.exclude, filters.status, filters.sort, filters.year, filters.season, filters.country, filters.rating],
     queryFn: () => {
+      // Hybrid Switch: Use MAL (Jikan) for Avant Garde
+      if (filters.include.includes("Avant Garde")) {
+        return getBrowseAnimeMAL({
+          page: page,
+          genres: filters.include,
+          search: filters.search,
+          status: filters.status,
+          sort: filters.sort
+        });
+      }
+
       const variables = {
         page: page,
+        perPage: 50,
         sort: [filters.sort],
       };
-      if (debouncedSearch.trim()) variables.search = debouncedSearch;
+      if (filters.search.trim()) variables.search = filters.search;
       if (filters.formats.length > 0) variables.format_in = filters.formats;
       
-      // Smart Mapping: Split genres into genre_in and tag_in
-      if (filters.genres.length > 0) {
+      // Keep API-side filtering for base results (inclusive)
+      if (filters.include.length > 0) {
         const genre_in = [];
         const tag_in = [];
-        filters.genres.forEach(g => {
-          if (OFFICIAL_GENRES.includes(g)) genre_in.push(g);
-          else tag_in.push(g);
+        filters.include.forEach(g => {
+          const mappedName = GENRE_MAP[g] || g;
+          if (OFFICIAL_GENRES.includes(mappedName)) genre_in.push(mappedName);
+          else tag_in.push(mappedName);
         });
         if (genre_in.length > 0) variables.genre_in = genre_in;
         if (tag_in.length > 0) variables.tag_in = tag_in;
@@ -126,49 +132,141 @@ export default function Browse() {
       if (filters.country) variables.country = filters.country;
       if (filters.rating) variables.averageScore_greater = parseInt(filters.rating);
       
-      console.info("[AniList] Browse Variables:", variables);
-      
+      console.info("[AniList] Browse Variables (50 items):", variables);
       return getBrowseAnime(variables);
     },
     enabled: true,
   });
 
-  const animeList = result.media || [];
-  const totalCount = result.pageInfo?.total || 0;
+  // --- Filtering Logic (AFTER fetch) ---
+  const animeList = useMemo(() => {
+    const rawList = result.media || [];
+    if (filters.include.length === 0 && filters.exclude.length === 0) return rawList;
 
-  const resetPage = () => {
-    setPage(1);
-    const newParams = new URLSearchParams(searchParams);
-    newParams.set("page", 1);
-    setSearchParams(newParams);
+    return rawList.filter(anime => {
+      // Get official genres and tags from the anime
+      const animeGenres = anime.genres || [];
+      const animeTags = anime.tags?.map(t => t.name) || [];
+      const allAnimeLabels = [...animeGenres, ...animeTags];
+      
+      // Step 1: Exclude Logic
+      const isExcluded = filters.exclude.some(excl => {
+        const mappedExcl = GENRE_MAP[excl] || excl;
+        return allAnimeLabels.includes(mappedExcl);
+      });
+      if (isExcluded) return false;
+
+      // Step 2: Include Logic (OR)
+      if (filters.include.length > 0) {
+        const isIncluded = filters.include.some(incl => {
+          const mappedIncl = GENRE_MAP[incl] || incl;
+          return allAnimeLabels.includes(mappedIncl);
+        });
+        if (!isIncluded) return false;
+      }
+
+      return true;
+    });
+  }, [result.media, filters.include, filters.exclude]);
+
+  const totalCount = result.pageInfo?.total || 0;
+  const hasNextPage = result.pageInfo?.hasNextPage || false;
+
+  // Fix: Auto-move to next page if current filtered list is empty (with safety break)
+  useEffect(() => {
+    // If we've successfully loaded items, reset the empty page counter
+    if (!isLoading && !isFetching && animeList.length > 0) {
+      setConsecutiveEmptyPages(0);
+      return;
+    }
+
+    // Circuit Breaker: If we've jumped 5 times and still find nothing, stop jumping
+    if (!isLoading && !isFetching && animeList.length === 0 && hasNextPage) {
+      if (consecutiveEmptyPages >= 5) {
+        console.warn("[Browse] Safety break triggered: Too many empty pages. Stopping auto-jump.");
+        return;
+      }
+      
+      console.info(`[Browse] Filtered to empty (Jump ${consecutiveEmptyPages + 1}/5), moving to page:`, page + 1);
+      setConsecutiveEmptyPages(prev => prev + 1);
+      handlePageChange(page + 1);
+    }
+  }, [animeList, isLoading, isFetching, hasNextPage]);
+
+
+  const toggleGenre = (genre) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      const include = next.get("genre")?.split(",").filter(Boolean) || [];
+      const exclude = next.get("exclude")?.split(",").filter(Boolean) || [];
+
+      // Logic Cycle: Neutral -> Include -> Exclude -> Neutral
+      if (include.includes(genre)) {
+        // Switch to Exclude
+        const newInclude = include.filter(g => g !== genre);
+        const newExclude = [...exclude, genre];
+        
+        if (newInclude.length > 0) next.set("genre", newInclude.join(",")); else next.delete("genre");
+        next.set("exclude", newExclude.join(","));
+      } else if (exclude.includes(genre)) {
+        // Switch to Neutral (Remove)
+        const newExclude = exclude.filter(g => g !== genre);
+        if (newExclude.length > 0) next.set("exclude", newExclude.join(",")); else next.delete("exclude");
+      } else {
+        // Switch to Include
+        const newInclude = [...include, genre];
+        next.set("genre", newInclude.join(","));
+      }
+
+      next.set("page", "1");
+      return next;
+    });
   };
 
   const toggleFilter = (key, value) => {
-    resetPage();
-    setFilters(prev => {
-      const current = prev[key];
-      const isSelected = current.includes(value);
-      return {
-        ...prev,
-        [key]: isSelected 
-          ? current.filter(v => v !== value)
-          : [...current, value]
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      // Map plural state keys to singular URL keys
+      const keyMap = {
+        formats: "format",
+        language: "language"
       };
+      const urlKey = keyMap[key] || key;
+      
+      const currentValues = next.getAll(urlKey);
+      const isSelected = currentValues.includes(value);
+      const nextValues = isSelected 
+        ? currentValues.filter(v => v !== value)
+        : [...currentValues, value];
+
+      next.delete(urlKey);
+      nextValues.forEach(v => next.append(urlKey, v));
+      next.set("page", "1");
+      return next;
     });
   };
 
   const handleSingleSelect = (key, value) => {
-    resetPage();
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (!value) next.delete(key);
+      else next.set(key, value);
+      next.set("page", "1");
+      return next;
+    });
   };
 
   const loading = isLoading || isFetching;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    resetPage();
-    setDebouncedSearch(filters.search);
-    refetch();
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (!searchInput) next.delete("search");
+      else next.set("search", searchInput);
+      next.set("page", "1");
+      return next;
+    });
   };
 
   return (
@@ -198,8 +296,8 @@ export default function Browse() {
             <input
               type="text"
               placeholder="Search..."
-              value={filters.search}
-              onChange={(e) => setFilters(p => ({ ...p, search: e.target.value }))}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-full h-full bg-transparent px-3 text-[12px] text-white/50 placeholder-white/20 outline-none hover:bg-white/[0.02] transition-colors"
             />
             <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/20 w-3 h-3" />
@@ -208,6 +306,7 @@ export default function Browse() {
           {/* Type Dropdown */}
           <div className="relative flex-1 border-r border-white/5">
             <button
+              type="button"
               onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
               className="w-full h-full flex items-center justify-between px-3 text-[12px] text-white/40 hover:bg-white/[0.02] transition-colors"
             >
@@ -224,6 +323,7 @@ export default function Browse() {
                     return (
                       <button 
                         key={format} 
+                        type="button"
                         onClick={() => toggleFilter('formats', format)}
                         className="flex items-center gap-3 w-full group text-left"
                       >
@@ -246,11 +346,12 @@ export default function Browse() {
           {/* Genre Dropdown */}
           <div className="relative flex-1 border-r border-white/5">
             <button
+              type="button"
               onClick={() => setOpenDropdown(openDropdown === 'genre' ? null : 'genre')}
               className="w-full h-full flex items-center justify-between px-3 text-[12px] text-white/40 hover:bg-white/[0.02] transition-colors"
             >
               <span className="truncate">
-                {filters.genres.length > 0 ? `Genre (${filters.genres.length})` : 'Genre'}
+                {filters.include.length > 0 || filters.exclude.length > 0 ? `Genres (${filters.include.length + filters.exclude.length})` : 'Genres'}
               </span>
               <ChevronDown className={`w-3 h-3 text-white/20 transition-transform ${openDropdown === 'genre' ? 'rotate-180' : ''}`} />
             </button>
@@ -259,38 +360,70 @@ export default function Browse() {
                 {/* Grid Container (No Scroll) */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
                   {ALL_GENRES.map(g => {
-                    const isSelected = filters.genres.includes(g);
+                    const isIncluded = filters.include.includes(g);
+                    const isExcluded = filters.exclude.includes(g);
+                    
                     return (
                       <button 
                         key={g} 
-                        onClick={() => toggleFilter('genres', g)}
+                        type="button"
+                        onClick={() => toggleGenre(g)}
                         className="flex items-center gap-3 group text-left py-0.5"
                       >
                         <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center transition-colors shrink-0 ${
-                          isSelected ? 'bg-red-600 border-red-600' : 'bg-transparent border-white/20 group-hover:border-white/40'
+                          isIncluded ? 'bg-red-600 border-red-600' : 
+                          isExcluded ? 'bg-white/10 border-white/30' : 
+                          'bg-transparent border-white/20 group-hover:border-white/40'
                         }`}>
-                          {isSelected && (
-                            <div className="w-2 h-2 bg-white" style={{ clipPath: 'polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%)' }} />
-                          )}
+                          {isIncluded && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+                          {isExcluded && <X className="w-2.5 h-2.5 text-red-500" strokeWidth={4} />}
                         </div>
-                        <span className={`text-[12px] truncate transition-colors ${isSelected ? 'text-white font-bold' : 'text-gray-400 group-hover:text-white'}`}>
+                        <span className={`text-[12px] truncate transition-colors ${
+                          isIncluded ? 'text-white font-bold' : 
+                          isExcluded ? 'text-white/40 line-through' :
+                          'text-gray-400 group-hover:text-white'
+                        }`}>
                           {g}
                         </span>
                       </button>
                     );
                   })}
                 </div>
-                {/* Actions Footer */}
-                {filters.genres.length > 0 && (
-                  <div className="mt-4 pt-3 border-t border-white/5 flex justify-end">
+                
+                {/* Legend & Actions */}
+                <div className="mt-5 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <div className="flex gap-4">
+                    <div className="flex items-center gap-1.5 opacity-40">
+                      <div className="w-3 h-3 border border-white/30 rounded-sm flex items-center justify-center bg-red-600 border-red-600">
+                        <Check className="w-2 h-2 text-white" strokeWidth={4} />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-tight">Included</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 opacity-40">
+                      <div className="w-3 h-3 border border-white/30 rounded-sm flex items-center justify-center bg-white/10">
+                        <X className="w-2 h-2 text-red-500" strokeWidth={4} />
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-tight">Excluded</span>
+                    </div>
+                  </div>
+
+                  {(filters.include.length > 0 || filters.exclude.length > 0) && (
                     <button 
-                      onClick={() => setFilters(p => ({ ...p, genres: [] }))}
+                      type="button"
+                      onClick={() => {
+                        setSearchParams(prev => {
+                          const next = new URLSearchParams(prev);
+                          next.delete("genre");
+                          next.delete("exclude");
+                          return next;
+                        });
+                      }}
                       className="text-[10px] uppercase tracking-widest font-bold text-red-500 hover:text-red-400 transition-colors"
                     >
-                      Clear All Genres
+                      Clear All
                     </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -298,6 +431,7 @@ export default function Browse() {
           {/* Status Dropdown */}
           <div className="relative flex-1 border-r border-white/5">
             <button
+              type="button"
               onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
               className="w-full h-full flex items-center justify-between px-3 text-[12px] text-white/40 hover:bg-white/[0.02] transition-colors"
             >
@@ -321,6 +455,7 @@ export default function Browse() {
                     return (
                       <button 
                         key={s.value}
+                        type="button"
                         onClick={() => {
                           handleSingleSelect('status', s.value);
                           setOpenDropdown(null);
@@ -350,6 +485,7 @@ export default function Browse() {
           {/* Advanced Filter Dropdown */}
           <div className="relative flex-1 border-l border-white/5 filter-dropdown-container ml-auto">
             <button
+              type="button"
               onClick={() => setOpenDropdown(openDropdown === 'advanced' ? null : 'advanced')}
               className="w-full h-full flex items-center justify-between px-3 text-[12px] text-white/40 hover:bg-white/[0.02] transition-colors"
             >
@@ -423,6 +559,7 @@ export default function Browse() {
                         return (
                           <button 
                             key={c.value}
+                            type="button"
                             onClick={() => handleSingleSelect('country', isActive ? "" : c.value)}
                             className="flex items-center gap-2.5 group cursor-pointer"
                           >
@@ -450,6 +587,7 @@ export default function Browse() {
                         return (
                           <button 
                             key={l}
+                            type="button"
                             onClick={() => toggleFilter('language', l)}
                             className="flex items-center gap-2.5 group cursor-pointer"
                           >
@@ -472,6 +610,7 @@ export default function Browse() {
                   <div className="space-y-3">
                     <span className="text-[12px] font-medium text-white/90">Extra Options</span>
                     <button 
+                      type="button"
                       onClick={() => handleSingleSelect('excludeMyList', !filters.excludeMyList)}
                       className="flex items-center gap-2.5 group cursor-pointer"
                     >
@@ -490,8 +629,14 @@ export default function Browse() {
                   <hr className="border-white/5 mt-2" />
                   
                   <button 
+                    type="button"
                     onClick={() => {
-                      setFilters(p => ({ ...p, year: null, season: null, country: "", rating: null, language: [], excludeMyList: false }));
+                      setSearchParams(prev => {
+                        const next = new URLSearchParams(prev);
+                        ["year", "season", "country", "rating", "language", "excludeMyList", "genre", "exclude", "format"].forEach(k => next.delete(k));
+                        next.set("page", "1");
+                        return next;
+                      });
                       setOpenDropdown(null);
                     }}
                     className="text-[11px] text-red-500 hover:text-red-400 transition-colors font-medium text-center"

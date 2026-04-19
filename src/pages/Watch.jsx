@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { getAnimeDetails, getEpisodeTitles, getAniwatchId, getAniwatchEpisodes, checkDubAvailability, getJikanAnimeDetails, getAnikaiDetails, getAniwatchDetails, getSecondaryEpisodeMeta, getMalSyncMapping } from "../services/api";
@@ -50,6 +50,8 @@ import {
 
 export default function Watch() {
   const { id } = useParams();
+  const location = useLocation();
+  const isMal = new URLSearchParams(location.search).get("mal") === "true";
   const { getTitle } = useLanguage();
   const { list, addToList, removeFromList } = useUserList();
 
@@ -138,8 +140,8 @@ export default function Watch() {
   }, [streamUrl]);
 
   const { data: anime, isLoading } = useQuery({
-    queryKey: ["animeDetails", id],
-    queryFn: () => getAnimeDetails(Number(id)),
+    queryKey: ["animeDetails", id, isMal],
+    queryFn: () => getAnimeDetails(id, isMal),
     enabled: !!id,
     staleTime: 0,
   });

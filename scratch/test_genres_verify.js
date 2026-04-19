@@ -13,6 +13,14 @@ const OFFICIAL_GENRES = [
   "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
 ];
 
+const GENRE_MAP = {
+  "Boys Love": "Boys' Love",
+  "Girls Love": "Girls' Love",
+  "Gourmet": "Food",
+  "Harem": "Female Harem",
+  "Reverse Harem": "Male Harem",
+};
+
 const query = `
   query ($genre_in: [String], $tag_in: [String]) {
     Page(perPage: 1) {
@@ -24,10 +32,11 @@ const query = `
 `;
 
 async function testGenres() {
-  console.log("Checking genres and tags against AniList...");
+  console.log("Checking genres and tags with MAPPING...");
   for (const genre of ALL_GENRES) {
-    const isOfficial = OFFICIAL_GENRES.includes(genre);
-    const variables = isOfficial ? { genre_in: [genre] } : { tag_in: [genre] };
+    const mappedName = GENRE_MAP[genre] || genre;
+    const isOfficial = OFFICIAL_GENRES.includes(mappedName);
+    const variables = isOfficial ? { genre_in: [mappedName] } : { tag_in: [mappedName] };
     
     try {
       const response = await fetch('https://graphql.anilist.co', {
@@ -38,13 +47,15 @@ async function testGenres() {
       const data = await response.json();
       const count = data.data?.Page?.media?.length || 0;
       if (count === 0) {
-        console.log(`[FAILED] ${genre} -> Returns 0 results`);
+        console.log(`[STILL FAILED] ${genre} -> Result: ${count}`);
+      } else {
+         // console.log(`[FIXED] ${genre}`);
       }
     } catch (err) {
       console.log(`[ERROR] ${genre}: ${err.message}`);
     }
   }
-  console.log("Check complete.");
+  console.log("Verification complete.");
 }
 
 testGenres();

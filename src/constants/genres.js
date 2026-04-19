@@ -12,3 +12,13 @@ export const OFFICIAL_GENRES = [
   "Mahou Shoujo", "Mecha", "Music", "Mystery", "Psychological", 
   "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural", "Thriller"
 ];
+
+export const GENRE_MAP = {
+  "Boys Love": "Boys' Love",
+  "Girls Love": "Yuri",
+  "Gourmet": "Food",
+  "Harem": "Female Harem",
+  "Reverse Harem": "Male Harem",
+  "Avant Garde": "Psychological",
+  "Suspense": "Mystery",
+};
