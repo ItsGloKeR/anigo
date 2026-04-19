@@ -116,7 +116,7 @@ export async function getGenres() {
 export const BROWSE_QUERY = `
   query ($page: Int, $search: String, $format_in: [MediaFormat], $sort: [MediaSort], $seasonYear: Int, $status: MediaStatus, $genre_in: [String], $tag_in: [String], $season: MediaSeason, $country: CountryCode) {
     Page(page: $page, perPage: 30) {
-      pageInfo { total }
+      pageInfo { total currentPage lastPage hasNextPage perPage }
       media(type: ANIME, search: $search, format_in: $format_in, sort: $sort, seasonYear: $seasonYear, status: $status, genre_in: $genre_in, tag_in: $tag_in, season: $season, countryOfOrigin: $country) {
         id
         title { romaji english native }

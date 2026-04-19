@@ -6,11 +6,11 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
 import SkeletonCard from "../components/common/SkeletonCard";
-import { Search, ChevronDown, ArrowDownUp, Filter } from "lucide-react";
+import { Search, ChevronDown, ArrowDownUp, Filter, ChevronRight, ChevronLeft, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { ALL_GENRES, OFFICIAL_GENRES } from "../constants/genres";
 
 export default function Browse() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [filters, setFilters] = useState(() => {
     const genreParam = searchParams.get("genre");
@@ -55,6 +55,24 @@ export default function Browse() {
     }));
   }
 
+  // Pagination state
+  const [page, setPage] = useState(() => parseInt(searchParams.get("page") || "1"));
+
+  // Sync page from URL
+  useEffect(() => {
+    const p = parseInt(searchParams.get("page") || "1");
+    if (p !== page) setPage(p);
+  }, [searchParams]);
+
+  // Update URL when page changes
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("page", newPage);
+    setSearchParams(newParams);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [openDropdown, setOpenDropdown] = useState(null);
 
@@ -81,10 +99,10 @@ export default function Browse() {
 
   // Fetch Browse Results
   const { data: result = { media: [], pageInfo: { total: 0 } }, isLoading, isFetching, refetch } = useQuery({
-    queryKey: ["browse", debouncedSearch, filters.formats, filters.genres, filters.status, filters.sort, filters.year, filters.season, filters.country, filters.rating],
+    queryKey: ["browse", page, debouncedSearch, filters.formats, filters.genres, filters.status, filters.sort, filters.year, filters.season, filters.country, filters.rating],
     queryFn: () => {
       const variables = {
-        page: 1,
+        page: page,
         sort: [filters.sort],
       };
       if (debouncedSearch.trim()) variables.search = debouncedSearch;
@@ -118,7 +136,15 @@ export default function Browse() {
   const animeList = result.media || [];
   const totalCount = result.pageInfo?.total || 0;
 
+  const resetPage = () => {
+    setPage(1);
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("page", 1);
+    setSearchParams(newParams);
+  };
+
   const toggleFilter = (key, value) => {
+    resetPage();
     setFilters(prev => {
       const current = prev[key];
       const isSelected = current.includes(value);
@@ -132,6 +158,7 @@ export default function Browse() {
   };
 
   const handleSingleSelect = (key, value) => {
+    resetPage();
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
@@ -139,6 +166,7 @@ export default function Browse() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    resetPage();
     setDebouncedSearch(filters.search);
     refetch();
   };
@@ -561,6 +589,68 @@ export default function Browse() {
         ) : (
           <div className="text-center py-24 opacity-40">
             <p className="text-sm font-medium">No results found matching your selection.</p>
+          </div>
+        )}
+
+        {/* Pagination Component */}
+        {!isLoading && result.pageInfo?.lastPage > 1 && (
+          <div className="mt-16 flex flex-wrap items-center justify-center gap-2">
+            {/* Prev Button */}
+            <button
+              onClick={() => handlePageChange(Math.max(1, page - 1))}
+              disabled={page === 1}
+              className="w-10 h-10 flex items-center justify-center bg-white/[0.03] border border-white/5 rounded-[4px] text-white/40 hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed group"
+            >
+              <ChevronLeft size={16} />
+            </button>
+
+            {/* Page Numbers */}
+            {(() => {
+              const lastPage = result.pageInfo.lastPage;
+              let pages = [];
+              
+              // Smart Pagination Logic (Show 5 pages around current)
+              let start = Math.max(1, page - 2);
+              let end = Math.min(lastPage, start + 4);
+              if (end === lastPage) start = Math.max(1, end - 4);
+
+              for (let i = start; i <= end; i++) {
+                const isActive = i === page;
+                pages.push(
+                  <button
+                    key={i}
+                    onClick={() => handlePageChange(i)}
+                    className={`w-10 h-10 flex items-center justify-center rounded-[4px] text-[13px] font-bold transition-all ${
+                      isActive 
+                        ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]' 
+                        : 'bg-white/[0.03] border border-white/5 text-white/40 hover:bg-white/[0.08] hover:text-white'
+                    }`}
+                  >
+                    {i}
+                  </button>
+                );
+              }
+              return pages;
+            })()}
+
+            {/* Next Button */}
+            <button
+              onClick={() => handlePageChange(Math.min(result.pageInfo.lastPage, page + 1))}
+              disabled={!result.pageInfo?.hasNextPage}
+              className="w-10 h-10 flex items-center justify-center bg-white/[0.03] border border-white/5 rounded-[4px] text-white/40 hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed group"
+            >
+              <ChevronRight size={16} />
+            </button>
+
+            {/* Last Page Button */}
+            <button
+              onClick={() => handlePageChange(result.pageInfo.lastPage)}
+              disabled={page === result.pageInfo.lastPage}
+              className="w-10 h-10 flex items-center justify-center bg-white/[0.03] border border-white/5 rounded-[4px] text-white/40 hover:bg-white/[0.08] hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed group"
+              title="Last Page"
+            >
+              <ChevronsRight size={16} />
+            </button>
           </div>
         )}
       </main>

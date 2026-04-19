@@ -1091,6 +1091,11 @@ export default function Watch() {
                 </div>
               </div>
             </section>
+
+            {/* Next Episode Banner - Moved here for better visibility */}
+            <div className="border-t border-white/5 bg-[#0d0d0d]/50">
+              <NextEpisodeBanner anime={anime} />
+            </div>
           </div>
 
           {/* RIGHT COLUMN: Episodes Sidebar */}
@@ -1385,8 +1390,6 @@ export default function Watch() {
                   </div>
                 </div>
 
-                {/* Next Episode Banner */}
-                <NextEpisodeBanner anime={anime} />
 
                 {/* Description */}
                 <div
