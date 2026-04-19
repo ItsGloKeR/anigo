@@ -16,18 +16,7 @@ function SkeletonListItem() {
   );
 }
 
-function SkeletonRankedItem({ featured }) {
-  if (featured) {
-    return (
-      <div className="space-y-3">
-        <div className="w-full aspect-16/10 rounded-[4px] bg-[#2a2a2a] animate-shimmer" />
-        <div className="space-y-2">
-          <div className="h-3 bg-[#2a2a2a] rounded animate-shimmer w-full" />
-          <div className="h-2 bg-[#2a2a2a] rounded animate-shimmer w-1/3" />
-        </div>
-      </div>
-    );
-  }
+function SkeletonRankedItem() {
   return (
     <div className="flex items-start gap-3 py-[6px] border-b border-[#2a2a2a] last:border-0">
       <div className="w-6 h-6 rounded-[3px] bg-[#2a2a2a] animate-shimmer shrink-0 mt-1" />
@@ -144,7 +133,8 @@ function RankedItem({ anime, rank, featured }) {
 }
 
 /* ── Section title with arrow ── */
-function SectionHeader({ title, hasArrow = false }) {
+function SectionHeader({ title, hasArrow = false, path }) {
+  const navigate = useNavigate();
   const lines = title.split("\n");
   return (
     <div className="flex items-center justify-between mb-5">
@@ -160,7 +150,10 @@ function SectionHeader({ title, hasArrow = false }) {
         </h2>
       </div>
       {hasArrow && (
-        <span className="w-6 h-6 bg-red-600 rounded-[3px] flex items-center justify-center text-white cursor-pointer hover:bg-red-700 transition-colors">
+        <span 
+          onClick={() => path && navigate(path)}
+          className="w-6 h-6 bg-red-600 rounded-[3px] flex items-center justify-center text-white cursor-pointer hover:bg-red-700 transition-colors"
+        >
           <ArrowUpRight size={14} />
         </span>
       )}
@@ -178,7 +171,11 @@ export default function ThreeColumnSection({ newReleases, mostViewed, justComple
         
         {/* ── LEFT: New Releases ── */}
         <div className="w-full">
-          <SectionHeader title={"NEW\nRELEASES"} hasArrow />
+          <SectionHeader 
+            title={"NEW\nRELEASES"} 
+            hasArrow 
+            path="/browse?sort=START_DATE_DESC" 
+          />
           <div className="w-full">
             {isLoading 
               ? Array.from({ length: 6 }).map((_, i) => <SkeletonListItem key={i} />)
@@ -227,18 +224,9 @@ export default function ThreeColumnSection({ newReleases, mostViewed, justComple
                     activeTab === "Day" ? 0 : activeTab === "Week" ? 6 : 12,
                     activeTab === "Day" ? 6 : activeTab === "Week" ? 12 : 18
                   )
-                  .slice(0, 1)
+                  .slice(0, 6)
                   .map((anime, i) => (
-                    <RankedItem key={`mv-${activeTab}-${anime.id}-${i}`} anime={anime} rank={i + 1} featured />
-                  ))}
-                {mostViewed
-                  .slice(
-                    activeTab === "Day" ? 0 : activeTab === "Week" ? 6 : 12,
-                    activeTab === "Day" ? 6 : activeTab === "Week" ? 12 : 18
-                  )
-                  .slice(1, 6)
-                  .map((anime, i) => (
-                    <RankedItem key={`mv2-${activeTab}-${anime.id}-${i}`} anime={anime} rank={i + 2} />
+                    <RankedItem key={`mv-${activeTab}-${anime.id}-${i}`} anime={anime} rank={i + 1} />
                   ))}
               </>
             )}
@@ -247,7 +235,11 @@ export default function ThreeColumnSection({ newReleases, mostViewed, justComple
 
         {/* ── RIGHT: Just Completed ── */}
         <div className="w-full">
-          <SectionHeader title={"JUST\nCOMPLETED"} hasArrow />
+          <SectionHeader 
+            title={"JUST\nCOMPLETED"} 
+            hasArrow 
+            path="/browse?status=FINISHED" 
+          />
           <div className="w-full">
             {isLoading
               ? Array.from({ length: 6 }).map((_, i) => <SkeletonListItem key={i} />)

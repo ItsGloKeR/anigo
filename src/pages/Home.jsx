@@ -11,6 +11,7 @@ import Hero from "../components/home/Hero";
 import AnimeRow from "../components/home/AnimeRow";
 import ThreeColumnSection from "../components/home/ThreeColumnSection";
 import AlphabetNav from "../components/home/AlphabetNav";
+import EstimatedSchedule from "../components/home/EstimatedSchedule";
 
 export default function Home() {
   const { data: trending = [], isLoading: loadingTrending } = useQuery({
@@ -57,6 +58,9 @@ export default function Home() {
         justCompleted={trending}
         isLoading={loadingTrending || loadingPopular || loadingNew}
       />
+
+      {/* Airing Schedule Section */}
+      <EstimatedSchedule />
 
       {/* Alphabet navigation */}
       <AlphabetNav />

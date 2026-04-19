@@ -26,7 +26,6 @@ export default function AnimeCard({ anime }) {
     ? (releasedEpisodes || "0")
     : `${releasedEpisodes || 0} / ${totalEpisodes}`;
   const format = anime.format || "TV";
-  const isAdult = anime.isAdult;
 
   return (
     <div 
@@ -53,25 +52,25 @@ export default function AnimeCard({ anime }) {
         )}
 
         {/* Red Format Tag (Top Left) */}
-        <div className="absolute top-0 left-0 bg-red-600 text-white text-[9px] font-extrabold px-1.5 py-[3px] rounded-br-[4px] z-20 tracking-tighter shadow-md">
+        <div className="absolute top-0 left-0 bg-red-600 text-white text-[10px] font-extrabold px-1.5 py-[3.5px] rounded-br-[4px] z-20 tracking-tighter shadow-md">
           {format}
         </div>
 
-        {/* Age Rating Badge (Top Left, below Format) */}
-        <div className="absolute top-[21px] left-0 bg-[#121212]/90 text-white/70 text-[9px] font-bold px-1.5 py-[2px] rounded-br-[4px] z-10 tracking-widest border-t border-white/5 shadow-lg">
-          {isAdult ? "R" : "PG"}
-        </div>
-
-        {/* Bottom Overlay Infobar */}
-        <div className="absolute bottom-2 left-2 right-2 flex items-center gap-[5px] z-10 flex-wrap">
-          <span className="bg-black/80 backdrop-blur-sm text-white text-[10px] font-bold px-1.5 py-[3px] rounded-[4px] shadow-md tracking-wide flex items-center gap-1.5">
-            <span className="text-[7px] font-black border border-white/20 px-0.5 rounded-[1px] opacity-60 leading-tight">CC</span>
-            {progress}
+        {/* Professional Age Rating Badge */}
+        <div className={`absolute top-[22px] left-0 px-1.5 py-[2px] rounded-br-[4px] z-10 flex items-center gap-1 border-t border-r border-white/10 shadow-xl backdrop-blur-sm ${(anime.rating?.includes('R') || anime.isAdult) ? 'bg-black/80' : 'bg-[#121212]/90'}`}>
+          {(anime.rating?.includes('R') || anime.isAdult) && <div className="w-[5px] h-[5px] bg-red-500 rounded-full animate-pulse" />}
+          <span className={`text-[10px] font-black tracking-tighter ${(anime.rating?.includes('R') || anime.isAdult) ? 'text-red-500' : 'text-white/80'}`}>
+            {(anime.rating?.includes('R') || anime.isAdult) ? "18+" : (anime.rating || "PG-13")}
           </span>
         </div>
 
+        {/* Top Right Indicator (Same to Same) */}
+        <div className="absolute top-0 right-0 bg-red-600 text-white p-1 rounded-bl-[4px] z-20 shadow-md">
+          <div className="w-3.5 h-3.5 flex items-center justify-center font-black text-[10px]">?</div>
+        </div>
+
         {/* Hover overlay (darker gradient + play icon) */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center pointer-events-none z-30">
           <svg
             className="w-12 h-12 text-white drop-shadow-xl scale-75 group-hover:scale-100 transition-transform duration-300"
             fill="currentColor"
@@ -82,8 +81,24 @@ export default function AnimeCard({ anime }) {
         </div>
       </div>
 
+      {/* CC Info Section (Professional Glass Pill Design) */}
+      <div className="flex justify-center -mt-[1px] relative z-20">
+        <div className="bg-[#050505]/90 backdrop-blur-md px-2.5 py-1 rounded-[4px] border border-white/5 flex items-center gap-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+          <div className="flex items-center gap-1.5 opacity-90 transition-opacity hover:opacity-100">
+             <span className="text-red-500">
+               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                 <path d="M19 4H5C3.89 4 3 4.9 3 6V18C3 19.1 3.89 20 5 20H19C20.1 20 21 19.1 21 18V6C21 4.9 20.1 4 19 4M11 11H8.5V10.5H7V13.5H8.5V13H11V14.5C11 15.33 10.33 16 9.5 16H6C5.17 16 4.5 15.33 4.5 14.5V9.5C4.5 8.67 5.17 8 6 8H9.5C10.33 8 11 8.67 11 9.5V11M19.5 11H17V10.5H15.5V13.5H17V13H19.5V14.5C19.5 15.33 18.83 16 18 16H14.5C13.67 16 13 15.33 13 14.5V9.5C13 8.67 13.67 8 14.5 8H18C18.83 8 19.5 8.67 19.5 9.5V11Z" />
+               </svg>
+             </span>
+             <span className="text-[12px] font-bold text-white tracking-tight">{releasedEpisodes || "0"}</span>
+          </div>
+          <div className="w-[1px] h-2.5 bg-white/10" />
+          <span className="text-[11px] font-medium text-white/30 tracking-wide">{totalEpisodes}</span>
+        </div>
+      </div>
+
       {/* Title Section */}
-      <div className="w-full mt-2.5">
+      <div className="w-full mt-2">
         <h3 className="text-[13px] md:text-[14px] font-normal text-white/80 line-clamp-2 leading-[1.4] group-hover:text-red-500 transition-colors">
           {getTitle(anime.title)}
         </h3>

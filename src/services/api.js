@@ -234,6 +234,7 @@ export async function getBrowseAnimeMAL(variables) {
         seasonYear: item.year || (item.aired?.from ? new Date(item.aired.from).getFullYear() : null),
         averageScore: item.score ? item.score * 10 : null,
         status: item.status === "Currently Airing" ? "RELEASING" : "FINISHED",
+        rating: item.rating ? item.rating.split(' - ')[0].trim() : null,
       })),
       pageInfo: {
         total: data.pagination.items.total,
