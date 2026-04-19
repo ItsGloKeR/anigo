@@ -6,7 +6,7 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
 import SkeletonCard from "../components/common/SkeletonCard";
-import { Search, ChevronDown, ArrowDownUp, Filter, ChevronRight, ChevronLeft, Check, X, ChevronsRight, ChevronsLeft } from "lucide-react";
+import { Search, ChevronDown, ArrowDownUp, Filter, ChevronRight, ChevronLeft, Check, X, ChevronsRight, ChevronsLeft, Feather, Target, Calendar } from "lucide-react";
 import { ALL_GENRES, OFFICIAL_GENRES, GENRE_MAP } from "../constants/genres";
 
 export default function Browse() {
@@ -76,6 +76,24 @@ export default function Browse() {
     }, 500);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  // Lock body scroll when any filter dropdown is open on mobile
+  useEffect(() => {
+    // Lock if any dropdown is open AND we are on a mobile screen
+    if (openDropdown && window.innerWidth < 768) {
+      document.body.style.overflow = 'hidden';
+      // Optional: Add a small padding to prevent layout shift if needed
+      document.body.style.touchAction = 'none'; 
+    } else {
+      document.body.style.overflow = 'unset';
+      document.body.style.touchAction = 'auto';
+    }
+    
+    return () => { 
+      document.body.style.overflow = 'unset'; 
+      document.body.style.touchAction = 'auto';
+    };
+  }, [openDropdown]);
 
   // Click outside to close dropdowns
   useEffect(() => {
@@ -276,7 +294,7 @@ export default function Browse() {
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 pt-24 pb-12">
         {/* Header Title & Result Count */}
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-[14px] font-semibold uppercase tracking-widest text-white opacity-50">
+          <h1 className="text-[14px] font-semibold uppercase tracking-[0.2em] text-white opacity-60">
             BROWSER
           </h1>
           {!isLoading && (
@@ -286,10 +304,204 @@ export default function Browse() {
           )}
         </div>
 
-        {/* Pixel-Matched Filter Bar */}
+        {/* Mobile Filter Grid (Always Visible as requested) */}
+        <div className="md:hidden grid grid-cols-2 bg-[#121212] border border-white/5 rounded-[4px] overflow-hidden mb-8 filter-dropdown-container relative">
+            {/* Row 1: Search (Sub) & Type */}
+            <div className="border-r border-b border-white/5 p-3 relative h-12 flex items-center">
+               <input
+                type="text"
+                placeholder="Search..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-full bg-transparent text-[12px] text-white placeholder-white/20 outline-none"
+              />
+              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/20 w-3 h-3" />
+            </div>
+            <button 
+              type="button"
+              onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+              className="border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
+            >
+              <span>{filters.formats.length > 0 ? `Format (${filters.formats.length})` : 'Type'}</span>
+              <ChevronDown className="w-3 h-3 text-white/20" />
+            </button>
+
+            {/* Row 2: Genre & Status */}
+            <button 
+              type="button"
+              onClick={() => setOpenDropdown(openDropdown === 'genre' ? null : 'genre')}
+              className="border-r border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
+            >
+              <span>{filters.include.length > 0 || filters.exclude.length > 0 ? `Genres (${filters.include.length + filters.exclude.length})` : 'Genre'}</span>
+              <ChevronDown className="w-3 h-3 text-white/20" />
+            </button>
+            <button 
+              type="button"
+              onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
+              className="border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
+            >
+              <span>{filters.status ? 'Status' : 'Status'}</span>
+              <ChevronDown className="w-3 h-3 text-white/20" />
+            </button>
+
+            {/* Row 3: Updated Date (Year) & Action Row */}
+            <div className="border-r border-white/5 relative">
+              <button 
+                type="button"
+                onClick={() => setOpenDropdown(openDropdown === 'year' ? null : 'year')}
+                className="w-full p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
+              >
+                <span>{filters.year || 'Updated date'}</span>
+                <ChevronDown className="w-3 h-3 text-white/20" />
+              </button>
+              
+              {/* Mobile Year Dropdown */}
+              {openDropdown === 'year' && (
+                <div className="fixed inset-x-4 top-[350px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl p-4 z-[110] max-h-[40vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+                  <div className="grid grid-cols-3 gap-2">
+                    {Array.from({ length: 25 }, (_, i) => 2026 - i).map(year => (
+                      <button
+                        key={year}
+                        type="button"
+                        onClick={() => { handleSingleSelect('year', year.toString()); setOpenDropdown(null); }}
+                        className={`py-2 text-[11px] rounded border transition-colors ${
+                          filters.year === year.toString() ? 'bg-red-600 border-red-600 text-white' : 'bg-white/[0.03] border-white/5 text-white/40'
+                        }`}
+                      >
+                        {year}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex h-12">
+               <button 
+                type="button"
+                onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
+                className={`flex-1 p-3 flex items-center justify-center border-r border-white/5 transition-colors ${openDropdown === 'sort' ? 'bg-white/10' : ''}`}
+              >
+                <ArrowDownUp className="w-3 h-3 text-white/50" />
+              </button>
+              <button 
+                type="button"
+                onClick={() => setOpenDropdown(null)}
+                className="flex-[3] bg-red-600 flex items-center justify-center gap-2 text-white font-bold text-[12px]"
+              >
+                <Feather className="w-3.5 h-3.5 fill-current" />
+                <span>Filter</span>
+              </button>
+            </div>
+
+            {/* Mobile Dropdown Overlays (Reusable Content logic but absolute to mobile items) */}
+            {openDropdown === 'type' && (
+              <div className="fixed inset-x-4 top-[250px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl p-4 z-[110] animate-in fade-in zoom-in-95 duration-200">
+                <div className="grid grid-cols-2 gap-3">
+                  {["MOVIE", "TV", "OVA", "ONA", "SPECIAL", "MUSIC"].map(format => {
+                    const isSelected = filters.formats.includes(format);
+                    return (
+                      <button 
+                        key={format} 
+                        type="button"
+                        onClick={() => toggleFilter('formats', format)}
+                        className={`flex items-center gap-3 p-3 rounded bg-white/[0.03] border border-white/5 ${isSelected ? 'border-white/20 bg-white/[0.05]' : ''}`}
+                      >
+                        <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center transition-colors ${isSelected ? 'bg-white border-white' : 'border-white/20'}`} />
+                        <span className={`text-[12px] opacity-70 ${isSelected ? 'text-white' : ''}`}>{format}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {openDropdown === 'genre' && (
+              <div className="fixed inset-x-6 top-[180px] max-h-[50vh] bg-[#121212] border border-white/5 rounded-[8px] shadow-2xl p-5 z-[110] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[12px] font-bold uppercase tracking-widest text-white/40">Select Genres</span>
+                  <div className="flex gap-4">
+                    {(filters.include.length > 0 || filters.exclude.length > 0) && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setSearchParams(prev => {
+                            const next = new URLSearchParams(prev);
+                            next.delete("genre");
+                            next.delete("exclude");
+                            return next;
+                          });
+                        }}
+                        className="text-[10px] text-red-500 font-bold uppercase"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                    <button onClick={() => setOpenDropdown(null)} className="text-[10px] text-white/60 font-bold uppercase">Close</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  {ALL_GENRES.map(g => {
+                    const isIncluded = filters.include.includes(g);
+                    const isExcluded = filters.exclude.includes(g);
+                    return (
+                      <button key={g} type="button" onClick={() => toggleGenre(g)} className="flex items-center gap-3 py-1">
+                        <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center shrink-0 ${isIncluded ? 'bg-red-600 border-red-600' : isExcluded ? 'bg-white/10 border-white/30' : 'border-white/20'}`}>
+                          {isIncluded && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+                          {isExcluded && <X className="w-2.5 h-2.5 text-red-500" strokeWidth={4} />}
+                        </div>
+                        <span className={`text-[12px] truncate ${isIncluded ? 'text-white font-bold' : isExcluded ? 'text-white/30 line-through' : 'text-white/50'}`}>{g}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {openDropdown === 'status' && (
+              <div className="fixed inset-x-4 top-[300px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl overflow-hidden z-[110] animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex flex-col">
+                  {['', 'RELEASING', 'FINISHED', 'NOT_YET_RELEASED'].map(val => (
+                    <button 
+                      key={val} 
+                      type="button"
+                      onClick={() => { handleSingleSelect('status', val); setOpenDropdown(null); }}
+                      className={`px-4 py-4 text-[12px] text-left border-b border-white/5 ${filters.status === val ? 'bg-red-600 text-white font-bold' : 'text-white/40 font-medium'}`}
+                    >
+                      {val === '' ? 'All Status' : val.replace(/_/g, ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {openDropdown === 'sort' && (
+              <div className="fixed inset-x-4 top-[300px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl overflow-hidden z-[110] animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex flex-col">
+                  {[
+                    { label: 'Trending', value: 'TRENDING_DESC' },
+                    { label: 'Popularity', value: 'POPULARITY_DESC' },
+                    { label: 'Highest Score', value: 'SCORE_DESC' },
+                    { label: 'Recently Added', value: 'ID_DESC' }
+                  ].map(s => (
+                    <button 
+                      key={s.value} 
+                      type="button"
+                      onClick={() => { handleSingleSelect('sort', s.value); setOpenDropdown(null); }}
+                      className={`px-4 py-4 text-[12px] text-left border-b border-white/5 ${filters.sort === s.value ? 'bg-red-600 text-white font-bold' : 'text-white/40 font-medium'}`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        
+        {/* Pixel-Matched Filter Bar (Desktop Only) */}
         <form 
           onSubmit={handleSubmit}
-          className="flex items-stretch mb-10 bg-[#121212] border border-white/5 rounded-[4px] h-10 relative filter-dropdown-container"
+          className="hidden md:flex items-stretch mb-10 bg-[#121212] border border-white/5 rounded-[4px] h-10 relative filter-dropdown-container"
         >
           {/* Search Input */}
           <div className="relative flex-[1.5] border-r border-white/5 group">

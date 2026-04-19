@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ALL_GENRES } from "../../constants/genres";
 import SchedulePanel from "../schedule/SchedulePanel";
 import { useLanguage } from "../../context/LanguageContext";
@@ -11,6 +11,8 @@ export default function Navbar() {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [showSchedule, setShowSchedule] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isBrowsePage = location.pathname === "/browse";
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -234,22 +236,24 @@ export default function Navbar() {
 
           {/* Search Trigger */}
           <div ref={searchContainerRef} className="flex items-center">
-            <button 
-              onClick={() => setIsSearchOpen(true)}
-              className="text-[#888] hover:text-white transition-all transform hover:scale-110"
-              title="Search Anime (Shortcut: /)"
-            >
-              <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </button>
+            {!isBrowsePage && (
+              <button 
+                onClick={() => setIsSearchOpen(true)}
+                className="text-[#888] hover:text-white transition-all transform hover:scale-110"
+                title="Search Anime (Shortcut: /)"
+              >
+                <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+            )}
 
             {/* Centered Search Overlay */}
             {isSearchOpen && (
               <div className="fixed inset-0 z-[999] flex items-start justify-center pt-[20vh] px-4 pointer-events-none">
                 {/* Backdrop - Stronger blur for the entire screen */}
                 <div 
-                  className="fixed inset-0 bg-black/40 backdrop-blur-md md:backdrop-blur-xl animate-in fade-in duration-300 pointer-events-auto cursor-pointer"
+                  className="fixed inset-0 bg-black/40 animate-in fade-in duration-300 pointer-events-auto cursor-pointer"
                   onClick={closeSearchOverlay}
                 />
                 
@@ -257,23 +261,12 @@ export default function Navbar() {
                 <div 
                   className="relative w-full max-w-[700px] bg-[#1c1c1c] rounded-[4px] shadow-[0_0_100px_rgba(0,0,0,1)] flex items-center p-2 animate-in zoom-in-95 duration-200 pointer-events-auto"
                 >
-                  {/* Internal Close Button (Mobile Friendly) */}
-                  <button 
-                    onClick={closeSearchOverlay}
-                    className="absolute -top-10 right-0 text-white/40 hover:text-white transition-colors flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest"
-                  >
-                    <span>Close</span>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-
                   <div className="pl-4 text-white/40">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
-                  
+
                   <form onSubmit={handleSearchSubmit} className="flex-1 flex items-center">
                     <input
                       type="text"
@@ -286,17 +279,12 @@ export default function Navbar() {
                   </form>
 
                   <button 
-                    onClick={() => {
-                      closeSearchOverlay();
-                      navigate("/browse");
-                    }}
-                    className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-[3px] text-[13px] font-bold transition-colors shrink-0"
+                    onClick={closeSearchOverlay}
+                    className="flex items-center gap-2 text-white/40 hover:text-white px-5 py-2.5 rounded-[3px] text-[13px] font-bold transition-colors shrink-0 group"
                   >
-                    <span>Filter</span>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <circle cx="12" cy="12" r="3" />
-                      <circle cx="12" cy="12" r="6" />
-                      <circle cx="12" cy="12" r="9" />
+                    <span className="hidden md:inline uppercase tracking-widest text-[11px]">Close</span>
+                    <svg className="w-5 h-5 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
 
