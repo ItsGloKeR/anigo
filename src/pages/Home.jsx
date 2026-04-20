@@ -84,39 +84,36 @@ export default function Home() {
       <Navbar />
       <Hero bgImages={bgImages} />
 
-      {/* Main Content Sections with balanced spacing */}
-      <div className="flex flex-col gap-y-12 md:gap-y-14 mt-10 mb-20 px-1 md:px-2">
-        {/* Latest Updates */}
-        <AnimeRow 
-          title="LATEST UPDATES" 
-          data={latestUpdates} 
-          isLoading={loadingLatest} 
-          limit={24}
-          tabs={["All", "Sub", "Dub", "China"]}
-          activeTab={activeLatestTab}
-          onTabChange={(tab) => setActiveLatestTab(tab)}
-        />
+      {/* Latest Updates */}
+      <AnimeRow
+        title="LATEST UPDATES"
+        data={latestUpdates}
+        isLoading={loadingLatest}
+        limit={24}
+        tabs={["All", "Sub", "Dub", "China"]}
+        activeTab={activeLatestTab}
+        onTabChange={(tab) => setActiveLatestTab(tab)}
+      />
 
-        {/* Popular This Season */}
-        <AnimeRow title="POPULAR THIS SEASON" data={popularThisSeason} isLoading={loadingSeason} limit={24} />
+      {/* Popular This Season */}
+      <AnimeRow title="POPULAR THIS SEASON" data={popularThisSeason} isLoading={loadingSeason} limit={24} />
 
-        {/* Trending Now */}
-        <AnimeRow title="TRENDING NOW" data={trending} isLoading={loadingTrending} limit={24} />
+      {/* Trending Now */}
+      <AnimeRow title="TRENDING NOW" data={trending} isLoading={loadingTrending} limit={24} />
 
-        {/* Three-column section */}
-        <ThreeColumnSection
-          newReleases={newReleases}
-          mostViewed={popular}
-          justCompleted={trending}
-          isLoading={loadingTrending || loadingPopular || loadingNew}
-        />
+      {/* Three-column section */}
+      <ThreeColumnSection
+        newReleases={newReleases}
+        mostViewed={popular}
+        justCompleted={trending}
+        isLoading={loadingTrending || loadingPopular || loadingNew}
+      />
 
-        {/* Airing Schedule Section */}
-        <EstimatedSchedule />
+      {/* Airing Schedule Section */}
+      <EstimatedSchedule />
 
-        {/* Alphabet navigation */}
-        <AlphabetNav />
-      </div>
+      {/* Alphabet navigation */}
+      <AlphabetNav />
 
       <Footer />
     </div>
