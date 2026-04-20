@@ -79,7 +79,7 @@ export default function AnimeDetails() {
       </div>
 
       {/* Content Area */}
-      <div className="max-w-[1200px] mx-auto px-4 md:px-6 -mt-[100px] md:-mt-[150px] relative z-10 w-full">
+      <div className="max-w-[1720px] mx-auto px-2 md:px-4 -mt-[100px] md:-mt-[150px] relative z-10 w-full">
         <div className="flex flex-col md:flex-row gap-6 md:gap-10">
           
           {/* Left Column: Poster & Actions */}

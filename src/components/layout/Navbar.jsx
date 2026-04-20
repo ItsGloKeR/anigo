@@ -105,7 +105,7 @@ export default function Navbar() {
   return (
     <>
       <nav className="fixed top-0 left-0 w-full z-110 bg-[#121212]/95 backdrop-blur-md border-b border-white/5">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-6 h-[56px] flex items-center justify-between">
+        <div className="max-w-[1720px] mx-auto px-2 md:px-4 h-[56px] flex items-center justify-between">
           <div className="flex items-center gap-3">
             {!isLandingPage && (
               <button

@@ -6,7 +6,7 @@ export default function AnimeRow({ title, data, isLoading, limit = 6 }) {
   const loading = isLoading || !data || data.length === 0;
   
   return (
-    <section className="mt-8 max-w-[1400px] mx-auto px-4 md:px-6 overflow-hidden">
+    <section className="mt-8 max-w-[1720px] mx-auto px-2 md:px-4 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">

@@ -166,7 +166,7 @@ export default function ThreeColumnSection({ newReleases, mostViewed, justComple
   const [activeTab, setActiveTab] = useState("Day");
 
   return (
-    <section className="mt-12 max-w-[1400px] mx-auto px-4 md:px-6 w-full overflow-hidden">
+    <section className="mt-12 max-w-[1720px] mx-auto px-2 md:px-4 w-full overflow-hidden">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-start w-full">
         
         {/* ── LEFT: New Releases ── */}

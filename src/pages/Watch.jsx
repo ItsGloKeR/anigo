@@ -888,7 +888,7 @@ export default function Watch() {
         />
       )}
 
-      <main className="pt-[60px] max-w-[1400px] mx-auto px-4 lg:px-6">
+      <main className="pt-[60px] max-w-[1720px] mx-auto px-2 lg:px-4">
 
         {/* 1. Breadcrumbs */}
         <nav className="flex items-center gap-2 py-2 lg:py-4 text-[11px] lg:text-[12px] font-bold text-[#666] overflow-x-auto whitespace-nowrap scrollbar-hide">

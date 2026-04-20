@@ -291,7 +291,7 @@ export default function Browse() {
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
       
-      <main className="max-w-[1400px] mx-auto px-4 md:px-6 pt-24 pb-12">
+      <main className="max-w-[1720px] mx-auto px-2 md:px-4 pt-24 pb-12">
         {/* Header Title & Result Count */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-[14px] font-semibold uppercase tracking-[0.2em] text-white opacity-60">

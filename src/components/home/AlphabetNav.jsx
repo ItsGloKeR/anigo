@@ -20,7 +20,7 @@ export default function AlphabetNav() {
   };
 
   return (
-    <section className="mt-14 max-w-[1400px] mx-auto px-4 md:px-6 select-none">
+    <section className="mt-14 max-w-[1720px] mx-auto px-2 md:px-4 select-none">
       {/* Label */}
       <p className="text-center text-[11px] font-bold uppercase tracking-[0.2em] text-white/20 mb-6">
         Searching anime order by alphabet name <span className="text-white/40">A to Z</span>

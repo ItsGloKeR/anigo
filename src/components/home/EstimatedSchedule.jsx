@@ -59,7 +59,7 @@ export default function EstimatedSchedule() {
   const offsetStr = `GMT ${offset >= 0 ? "+" : "-"}${String(offsetHrs).padStart(2, "0")}:${String(offsetMins).padStart(2, "0")}`;
 
   return (
-    <section className="max-w-[1400px] mx-auto px-4 md:px-6 mt-6 mb-6">
+    <section className="max-w-[1720px] mx-auto px-2 md:px-4 mt-6 mb-6">
       <div className="bg-[#0f1115] rounded-[6px] border border-white/5 overflow-hidden shadow-lg">
         
         {/* Header Area */}
