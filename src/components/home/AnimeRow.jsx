@@ -4,7 +4,7 @@ import { ChevronDown } from "lucide-react";
 
 export default function AnimeRow({ title, data, isLoading, limit = 6 }) {
   const loading = isLoading || !data || data.length === 0;
-  
+
   return (
     <section className="mt-8 max-w-[1720px] mx-auto px-2 md:px-4 overflow-hidden">
       {/* Header */}
@@ -21,20 +21,20 @@ export default function AnimeRow({ title, data, isLoading, limit = 6 }) {
           </span>
         </div>
       </div>
- 
+
       {/* Grid container */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6 sm:gap-6 md:gap-8 gap-y-10">
-        {loading 
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3 md:gap-x-4 gap-y-7">
+        {loading
           ? Array.from({ length: limit }).map((_, i) => (
-              <div key={i} className={i >= 20 ? 'hidden sm:block' : 'block'}>
-                <SkeletonCard />
-              </div>
-            ))
+            <div key={i} className={i >= 20 ? 'hidden sm:block' : 'block'}>
+              <SkeletonCard />
+            </div>
+          ))
           : data.slice(0, limit).map((anime, i) => (
-              <div key={`${anime.id}-${i}`} className={i >= 20 ? 'hidden sm:block' : 'block'}>
-                <AnimeCard anime={anime} />
-              </div>
-            ))
+            <div key={`${anime.id}-${i}`} className={i >= 20 ? 'hidden sm:block' : 'block'}>
+              <AnimeCard anime={anime} />
+            </div>
+          ))
         }
       </div>
     </section>

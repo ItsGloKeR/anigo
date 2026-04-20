@@ -11,7 +11,7 @@ import { ALL_GENRES, OFFICIAL_GENRES, GENRE_MAP } from "../constants/genres";
 
 export default function Browse() {
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const filters = useMemo(() => {
     const genreStr = searchParams.get("genre") || "";
     const excludeStr = searchParams.get("exclude") || "";
@@ -64,7 +64,7 @@ export default function Browse() {
   useEffect(() => {
     const currentUrlSearch = searchParams.get("search") || "";
     if (searchInput === currentUrlSearch) return;
-    
+
     const timer = setTimeout(() => {
       setSearchParams(prev => {
         const next = new URLSearchParams(prev);
@@ -83,14 +83,14 @@ export default function Browse() {
     if (openDropdown && window.innerWidth < 768) {
       document.body.style.overflow = 'hidden';
       // Optional: Add a small padding to prevent layout shift if needed
-      document.body.style.touchAction = 'none'; 
+      document.body.style.touchAction = 'none';
     } else {
       document.body.style.overflow = 'unset';
       document.body.style.touchAction = 'auto';
     }
-    
-    return () => { 
-      document.body.style.overflow = 'unset'; 
+
+    return () => {
+      document.body.style.overflow = 'unset';
       document.body.style.touchAction = 'auto';
     };
   }, [openDropdown]);
@@ -130,7 +130,7 @@ export default function Browse() {
       };
       if (filters.search.trim()) variables.search = filters.search;
       if (filters.formats.length > 0) variables.format_in = filters.formats;
-      
+
       // Keep API-side filtering for base results (inclusive)
       if (filters.include.length > 0) {
         const genre_in = [];
@@ -149,7 +149,7 @@ export default function Browse() {
       if (filters.season) variables.season = filters.season;
       if (filters.country) variables.country = filters.country;
       if (filters.rating) variables.averageScore_greater = parseInt(filters.rating);
-      
+
       console.info("[AniList] Browse Variables (50 items):", variables);
       return getBrowseAnime(variables);
     },
@@ -166,7 +166,7 @@ export default function Browse() {
       const animeGenres = anime.genres || [];
       const animeTags = anime.tags?.map(t => t.name) || [];
       const allAnimeLabels = [...animeGenres, ...animeTags];
-      
+
       // Step 1: Exclude Logic
       const isExcluded = filters.exclude.some(excl => {
         const mappedExcl = GENRE_MAP[excl] || excl;
@@ -204,7 +204,7 @@ export default function Browse() {
         console.warn("[Browse] Safety break triggered: Too many empty pages. Stopping auto-jump.");
         return;
       }
-      
+
       console.info(`[Browse] Filtered to empty (Jump ${consecutiveEmptyPages + 1}/5), moving to page:`, page + 1);
       setConsecutiveEmptyPages(prev => prev + 1);
       handlePageChange(page + 1);
@@ -223,7 +223,7 @@ export default function Browse() {
         // Switch to Exclude
         const newInclude = include.filter(g => g !== genre);
         const newExclude = [...exclude, genre];
-        
+
         if (newInclude.length > 0) next.set("genre", newInclude.join(",")); else next.delete("genre");
         next.set("exclude", newExclude.join(","));
       } else if (exclude.includes(genre)) {
@@ -250,10 +250,10 @@ export default function Browse() {
         language: "language"
       };
       const urlKey = keyMap[key] || key;
-      
+
       const currentValues = next.getAll(urlKey);
       const isSelected = currentValues.includes(value);
-      const nextValues = isSelected 
+      const nextValues = isSelected
         ? currentValues.filter(v => v !== value)
         : [...currentValues, value];
 
@@ -290,7 +290,7 @@ export default function Browse() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <Navbar />
-      
+
       <main className="max-w-[1720px] mx-auto px-2 md:px-4 pt-24 pb-12">
         {/* Header Title & Result Count */}
         <div className="flex items-center justify-between mb-4">
@@ -306,200 +306,199 @@ export default function Browse() {
 
         {/* Mobile Filter Grid (Always Visible as requested) */}
         <div className="md:hidden grid grid-cols-2 bg-[#121212] border border-white/5 rounded-[4px] overflow-hidden mb-8 filter-dropdown-container relative">
-            {/* Row 1: Search (Sub) & Type */}
-            <div className="border-r border-b border-white/5 p-3 relative h-12 flex items-center">
-               <input
-                type="text"
-                placeholder="Search..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full bg-transparent text-[12px] text-white placeholder-white/20 outline-none"
-              />
-              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/20 w-3 h-3" />
-            </div>
-            <button 
+          {/* Row 1: Search (Sub) & Type */}
+          <div className="border-r border-b border-white/5 p-3 relative h-12 flex items-center">
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full bg-transparent text-[12px] text-white placeholder-white/20 outline-none"
+            />
+            <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/20 w-3 h-3" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
+            className="border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
+          >
+            <span>{filters.formats.length > 0 ? `Format (${filters.formats.length})` : 'Type'}</span>
+            <ChevronDown className="w-3 h-3 text-white/20" />
+          </button>
+
+          {/* Row 2: Genre & Status */}
+          <button
+            type="button"
+            onClick={() => setOpenDropdown(openDropdown === 'genre' ? null : 'genre')}
+            className="border-r border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
+          >
+            <span>{filters.include.length > 0 || filters.exclude.length > 0 ? `Genres (${filters.include.length + filters.exclude.length})` : 'Genre'}</span>
+            <ChevronDown className="w-3 h-3 text-white/20" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
+            className="border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
+          >
+            <span>{filters.status ? 'Status' : 'Status'}</span>
+            <ChevronDown className="w-3 h-3 text-white/20" />
+          </button>
+
+          {/* Row 3: Updated Date (Year) & Action Row */}
+          <div className="border-r border-white/5 relative">
+            <button
               type="button"
-              onClick={() => setOpenDropdown(openDropdown === 'type' ? null : 'type')}
-              className="border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
+              onClick={() => setOpenDropdown(openDropdown === 'year' ? null : 'year')}
+              className="w-full p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
             >
-              <span>{filters.formats.length > 0 ? `Format (${filters.formats.length})` : 'Type'}</span>
+              <span>{filters.year || 'Updated date'}</span>
               <ChevronDown className="w-3 h-3 text-white/20" />
             </button>
 
-            {/* Row 2: Genre & Status */}
-            <button 
-              type="button"
-              onClick={() => setOpenDropdown(openDropdown === 'genre' ? null : 'genre')}
-              className="border-r border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
-            >
-              <span>{filters.include.length > 0 || filters.exclude.length > 0 ? `Genres (${filters.include.length + filters.exclude.length})` : 'Genre'}</span>
-              <ChevronDown className="w-3 h-3 text-white/20" />
-            </button>
-            <button 
-              type="button"
-              onClick={() => setOpenDropdown(openDropdown === 'status' ? null : 'status')}
-              className="border-b border-white/5 p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
-            >
-              <span>{filters.status ? 'Status' : 'Status'}</span>
-              <ChevronDown className="w-3 h-3 text-white/20" />
-            </button>
-
-            {/* Row 3: Updated Date (Year) & Action Row */}
-            <div className="border-r border-white/5 relative">
-              <button 
-                type="button"
-                onClick={() => setOpenDropdown(openDropdown === 'year' ? null : 'year')}
-                className="w-full p-3 h-12 flex items-center justify-between text-[12px] text-white/40"
-              >
-                <span>{filters.year || 'Updated date'}</span>
-                <ChevronDown className="w-3 h-3 text-white/20" />
-              </button>
-              
-              {/* Mobile Year Dropdown */}
-              {openDropdown === 'year' && (
-                <div className="fixed inset-x-4 top-[350px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl p-4 z-[110] max-h-[40vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-                  <div className="grid grid-cols-3 gap-2">
-                    {Array.from({ length: 25 }, (_, i) => 2026 - i).map(year => (
-                      <button
-                        key={year}
-                        type="button"
-                        onClick={() => { handleSingleSelect('year', year.toString()); setOpenDropdown(null); }}
-                        className={`py-2 text-[11px] rounded border transition-colors ${
-                          filters.year === year.toString() ? 'bg-red-600 border-red-600 text-white' : 'bg-white/[0.03] border-white/5 text-white/40'
+            {/* Mobile Year Dropdown */}
+            {openDropdown === 'year' && (
+              <div className="fixed inset-x-4 top-[350px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl p-4 z-[110] max-h-[40vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+                <div className="grid grid-cols-3 gap-2">
+                  {Array.from({ length: 25 }, (_, i) => 2026 - i).map(year => (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => { handleSingleSelect('year', year.toString()); setOpenDropdown(null); }}
+                      className={`py-2 text-[11px] rounded border transition-colors ${filters.year === year.toString() ? 'bg-red-600 border-red-600 text-white' : 'bg-white/[0.03] border-white/5 text-white/40'
                         }`}
-                      >
-                        {year}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex h-12">
-               <button 
-                type="button"
-                onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
-                className={`flex-1 p-3 flex items-center justify-center border-r border-white/5 transition-colors ${openDropdown === 'sort' ? 'bg-white/10' : ''}`}
-              >
-                <ArrowDownUp className="w-3 h-3 text-white/50" />
-              </button>
-              <button 
-                type="button"
-                onClick={() => setOpenDropdown(null)}
-                className="flex-[3] bg-red-600 flex items-center justify-center gap-2 text-white font-bold text-[12px]"
-              >
-                <Feather className="w-3.5 h-3.5 fill-current" />
-                <span>Filter</span>
-              </button>
-            </div>
-
-            {/* Mobile Dropdown Overlays (Reusable Content logic but absolute to mobile items) */}
-            {openDropdown === 'type' && (
-              <div className="fixed inset-x-4 top-[250px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl p-4 z-[110] animate-in fade-in zoom-in-95 duration-200">
-                <div className="grid grid-cols-2 gap-3">
-                  {["MOVIE", "TV", "OVA", "ONA", "SPECIAL", "MUSIC"].map(format => {
-                    const isSelected = filters.formats.includes(format);
-                    return (
-                      <button 
-                        key={format} 
-                        type="button"
-                        onClick={() => toggleFilter('formats', format)}
-                        className={`flex items-center gap-3 p-3 rounded bg-white/[0.03] border border-white/5 ${isSelected ? 'border-white/20 bg-white/[0.05]' : ''}`}
-                      >
-                        <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center transition-colors ${isSelected ? 'bg-white border-white' : 'border-white/20'}`} />
-                        <span className={`text-[12px] opacity-70 ${isSelected ? 'text-white' : ''}`}>{format}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {openDropdown === 'genre' && (
-              <div className="fixed inset-x-6 top-[180px] max-h-[50vh] bg-[#121212] border border-white/5 rounded-[8px] shadow-2xl p-5 z-[110] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[12px] font-bold uppercase tracking-widest text-white/40">Select Genres</span>
-                  <div className="flex gap-4">
-                    {(filters.include.length > 0 || filters.exclude.length > 0) && (
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          setSearchParams(prev => {
-                            const next = new URLSearchParams(prev);
-                            next.delete("genre");
-                            next.delete("exclude");
-                            return next;
-                          });
-                        }}
-                        className="text-[10px] text-red-500 font-bold uppercase"
-                      >
-                        Clear All
-                      </button>
-                    )}
-                    <button onClick={() => setOpenDropdown(null)} className="text-[10px] text-white/60 font-bold uppercase">Close</button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  {ALL_GENRES.map(g => {
-                    const isIncluded = filters.include.includes(g);
-                    const isExcluded = filters.exclude.includes(g);
-                    return (
-                      <button key={g} type="button" onClick={() => toggleGenre(g)} className="flex items-center gap-3 py-1">
-                        <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center shrink-0 ${isIncluded ? 'bg-red-600 border-red-600' : isExcluded ? 'bg-white/10 border-white/30' : 'border-white/20'}`}>
-                          {isIncluded && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
-                          {isExcluded && <X className="w-2.5 h-2.5 text-red-500" strokeWidth={4} />}
-                        </div>
-                        <span className={`text-[12px] truncate ${isIncluded ? 'text-white font-bold' : isExcluded ? 'text-white/30 line-through' : 'text-white/50'}`}>{g}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {openDropdown === 'status' && (
-              <div className="fixed inset-x-4 top-[300px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl overflow-hidden z-[110] animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex flex-col">
-                  {['', 'RELEASING', 'FINISHED', 'NOT_YET_RELEASED'].map(val => (
-                    <button 
-                      key={val} 
-                      type="button"
-                      onClick={() => { handleSingleSelect('status', val); setOpenDropdown(null); }}
-                      className={`px-4 py-4 text-[12px] text-left border-b border-white/5 ${filters.status === val ? 'bg-red-600 text-white font-bold' : 'text-white/40 font-medium'}`}
                     >
-                      {val === '' ? 'All Status' : val.replace(/_/g, ' ')}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {openDropdown === 'sort' && (
-              <div className="fixed inset-x-4 top-[300px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl overflow-hidden z-[110] animate-in fade-in zoom-in-95 duration-200">
-                <div className="flex flex-col">
-                  {[
-                    { label: 'Trending', value: 'TRENDING_DESC' },
-                    { label: 'Popularity', value: 'POPULARITY_DESC' },
-                    { label: 'Highest Score', value: 'SCORE_DESC' },
-                    { label: 'Recently Added', value: 'ID_DESC' }
-                  ].map(s => (
-                    <button 
-                      key={s.value} 
-                      type="button"
-                      onClick={() => { handleSingleSelect('sort', s.value); setOpenDropdown(null); }}
-                      className={`px-4 py-4 text-[12px] text-left border-b border-white/5 ${filters.sort === s.value ? 'bg-red-600 text-white font-bold' : 'text-white/40 font-medium'}`}
-                    >
-                      {s.label}
+                      {year}
                     </button>
                   ))}
                 </div>
               </div>
             )}
           </div>
-        
+
+          <div className="flex h-12">
+            <button
+              type="button"
+              onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
+              className={`flex-1 p-3 flex items-center justify-center border-r border-white/5 transition-colors ${openDropdown === 'sort' ? 'bg-white/10' : ''}`}
+            >
+              <ArrowDownUp className="w-3 h-3 text-white/50" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpenDropdown(null)}
+              className="flex-[3] bg-red-600 flex items-center justify-center gap-2 text-white font-bold text-[12px]"
+            >
+              <Feather className="w-3.5 h-3.5 fill-current" />
+              <span>Filter</span>
+            </button>
+          </div>
+
+          {/* Mobile Dropdown Overlays (Reusable Content logic but absolute to mobile items) */}
+          {openDropdown === 'type' && (
+            <div className="fixed inset-x-4 top-[250px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl p-4 z-[110] animate-in fade-in zoom-in-95 duration-200">
+              <div className="grid grid-cols-2 gap-3">
+                {["MOVIE", "TV", "OVA", "ONA", "SPECIAL", "MUSIC"].map(format => {
+                  const isSelected = filters.formats.includes(format);
+                  return (
+                    <button
+                      key={format}
+                      type="button"
+                      onClick={() => toggleFilter('formats', format)}
+                      className={`flex items-center gap-3 p-3 rounded bg-white/[0.03] border border-white/5 ${isSelected ? 'border-white/20 bg-white/[0.05]' : ''}`}
+                    >
+                      <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center transition-colors ${isSelected ? 'bg-white border-white' : 'border-white/20'}`} />
+                      <span className={`text-[12px] opacity-70 ${isSelected ? 'text-white' : ''}`}>{format}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {openDropdown === 'genre' && (
+            <div className="fixed inset-x-6 top-[180px] max-h-[50vh] bg-[#121212] border border-white/5 rounded-[8px] shadow-2xl p-5 z-[110] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[12px] font-bold uppercase tracking-widest text-white/40">Select Genres</span>
+                <div className="flex gap-4">
+                  {(filters.include.length > 0 || filters.exclude.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchParams(prev => {
+                          const next = new URLSearchParams(prev);
+                          next.delete("genre");
+                          next.delete("exclude");
+                          return next;
+                        });
+                      }}
+                      className="text-[10px] text-red-500 font-bold uppercase"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                  <button onClick={() => setOpenDropdown(null)} className="text-[10px] text-white/60 font-bold uppercase">Close</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {ALL_GENRES.map(g => {
+                  const isIncluded = filters.include.includes(g);
+                  const isExcluded = filters.exclude.includes(g);
+                  return (
+                    <button key={g} type="button" onClick={() => toggleGenre(g)} className="flex items-center gap-3 py-1">
+                      <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center shrink-0 ${isIncluded ? 'bg-red-600 border-red-600' : isExcluded ? 'bg-white/10 border-white/30' : 'border-white/20'}`}>
+                        {isIncluded && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
+                        {isExcluded && <X className="w-2.5 h-2.5 text-red-500" strokeWidth={4} />}
+                      </div>
+                      <span className={`text-[12px] truncate ${isIncluded ? 'text-white font-bold' : isExcluded ? 'text-white/30 line-through' : 'text-white/50'}`}>{g}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {openDropdown === 'status' && (
+            <div className="fixed inset-x-4 top-[300px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl overflow-hidden z-[110] animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex flex-col">
+                {['', 'RELEASING', 'FINISHED', 'NOT_YET_RELEASED'].map(val => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => { handleSingleSelect('status', val); setOpenDropdown(null); }}
+                    className={`px-4 py-4 text-[12px] text-left border-b border-white/5 ${filters.status === val ? 'bg-red-600 text-white font-bold' : 'text-white/40 font-medium'}`}
+                  >
+                    {val === '' ? 'All Status' : val.replace(/_/g, ' ')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {openDropdown === 'sort' && (
+            <div className="fixed inset-x-4 top-[300px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl overflow-hidden z-[110] animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex flex-col">
+                {[
+                  { label: 'Trending', value: 'TRENDING_DESC' },
+                  { label: 'Popularity', value: 'POPULARITY_DESC' },
+                  { label: 'Highest Score', value: 'SCORE_DESC' },
+                  { label: 'Recently Added', value: 'ID_DESC' }
+                ].map(s => (
+                  <button
+                    key={s.value}
+                    type="button"
+                    onClick={() => { handleSingleSelect('sort', s.value); setOpenDropdown(null); }}
+                    className={`px-4 py-4 text-[12px] text-left border-b border-white/5 ${filters.sort === s.value ? 'bg-red-600 text-white font-bold' : 'text-white/40 font-medium'}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Pixel-Matched Filter Bar (Desktop Only) */}
-        <form 
+        <form
           onSubmit={handleSubmit}
           className="hidden md:flex items-stretch mb-10 bg-[#121212] border border-white/5 rounded-[4px] h-10 relative filter-dropdown-container"
         >
@@ -533,15 +532,14 @@ export default function Browse() {
                   {["MOVIE", "TV", "OVA", "ONA", "SPECIAL", "MUSIC"].map(format => {
                     const isSelected = filters.formats.includes(format);
                     return (
-                      <button 
-                        key={format} 
+                      <button
+                        key={format}
                         type="button"
                         onClick={() => toggleFilter('formats', format)}
                         className="flex items-center gap-3 w-full group text-left"
                       >
-                        <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center transition-colors ${
-                          isSelected ? 'bg-white border-white' : 'bg-transparent border-white/20 group-hover:border-white/40'
-                        }`}>
+                        <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center transition-colors ${isSelected ? 'bg-white border-white' : 'bg-transparent border-white/20 group-hover:border-white/40'
+                          }`}>
                           {isSelected && <div className="w-2 h-2 bg-[#121212]" style={{ clipPath: 'polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%)' }} />}
                         </div>
                         <span className={`text-[12px] transition-colors ${isSelected ? 'text-white font-bold' : 'text-gray-400 group-hover:text-white'}`}>
@@ -570,38 +568,36 @@ export default function Browse() {
             {openDropdown === 'genre' && (
               <div className="absolute top-[44px] left-[-100px] md:left-0 w-[380px] md:w-[650px] bg-[#121212] border border-white/5 rounded-[4px] shadow-2xl p-4 z-[100] animate-in fade-in zoom-in-95 duration-200">
                 {/* Grid Container (No Scroll) */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-7">
                   {ALL_GENRES.map(g => {
                     const isIncluded = filters.include.includes(g);
                     const isExcluded = filters.exclude.includes(g);
-                    
+
                     return (
-                      <button 
-                        key={g} 
+                      <button
+                        key={g}
                         type="button"
                         onClick={() => toggleGenre(g)}
                         className="flex items-center gap-3 group text-left py-0.5"
                       >
-                        <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center transition-colors shrink-0 ${
-                          isIncluded ? 'bg-red-600 border-red-600' : 
-                          isExcluded ? 'bg-white/10 border-white/30' : 
-                          'bg-transparent border-white/20 group-hover:border-white/40'
-                        }`}>
+                        <div className={`w-3.5 h-3.5 border rounded-[2px] flex items-center justify-center transition-colors shrink-0 ${isIncluded ? 'bg-red-600 border-red-600' :
+                          isExcluded ? 'bg-white/10 border-white/30' :
+                            'bg-transparent border-white/20 group-hover:border-white/40'
+                          }`}>
                           {isIncluded && <Check className="w-2.5 h-2.5 text-white" strokeWidth={4} />}
                           {isExcluded && <X className="w-2.5 h-2.5 text-red-500" strokeWidth={4} />}
                         </div>
-                        <span className={`text-[12px] truncate transition-colors ${
-                          isIncluded ? 'text-white font-bold' : 
+                        <span className={`text-[12px] truncate transition-colors ${isIncluded ? 'text-white font-bold' :
                           isExcluded ? 'text-white/40 line-through' :
-                          'text-gray-400 group-hover:text-white'
-                        }`}>
+                            'text-gray-400 group-hover:text-white'
+                          }`}>
                           {g}
                         </span>
                       </button>
                     );
                   })}
                 </div>
-                
+
                 {/* Legend & Actions */}
                 <div className="mt-5 pt-3 border-t border-white/5 flex items-center justify-between">
                   <div className="flex gap-4">
@@ -620,7 +616,7 @@ export default function Browse() {
                   </div>
 
                   {(filters.include.length > 0 || filters.exclude.length > 0) && (
-                    <button 
+                    <button
                       type="button"
                       onClick={() => {
                         setSearchParams(prev => {
@@ -648,9 +644,9 @@ export default function Browse() {
               className="w-full h-full flex items-center justify-between px-3 text-[12px] text-white/40 hover:bg-white/[0.02] transition-colors"
             >
               <span className="truncate">
-                {filters.status === 'RELEASING' ? 'Releasing' : 
-                 filters.status === 'FINISHED' ? 'Completed' :
-                 filters.status === 'NOT_YET_RELEASED' ? 'Upcoming' : 'Status'}
+                {filters.status === 'RELEASING' ? 'Releasing' :
+                  filters.status === 'FINISHED' ? 'Completed' :
+                    filters.status === 'NOT_YET_RELEASED' ? 'Upcoming' : 'Status'}
               </span>
               <ChevronDown className={`w-3 h-3 text-white/20 transition-transform ${openDropdown === 'status' ? 'rotate-180' : ''}`} />
             </button>
@@ -665,25 +661,22 @@ export default function Browse() {
                   ].map(s => {
                     const isActive = filters.status === s.value;
                     return (
-                      <button 
+                      <button
                         key={s.value}
                         type="button"
                         onClick={() => {
                           handleSingleSelect('status', s.value);
                           setOpenDropdown(null);
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                          isActive ? 'bg-red-600' : 'hover:bg-white/[0.05]'
-                        }`}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${isActive ? 'bg-red-600' : 'hover:bg-white/[0.05]'
+                          }`}
                       >
-                        <div className={`w-4 h-4 rounded-full border border-white/20 flex items-center justify-center transition-colors ${
-                          isActive ? 'bg-white border-white' : 'bg-transparent'
-                        }`}>
+                        <div className={`w-4 h-4 rounded-full border border-white/20 flex items-center justify-center transition-colors ${isActive ? 'bg-white border-white' : 'bg-transparent'
+                          }`}>
                           {isActive && <div className="w-2 h-2 bg-red-600 rounded-full" />}
                         </div>
-                        <span className={`text-[12px] ${
-                          isActive ? 'text-white font-bold' : 'text-gray-400 font-medium'
-                        }`}>
+                        <span className={`text-[12px] ${isActive ? 'text-white font-bold' : 'text-gray-400 font-medium'
+                          }`}>
                           {s.label}
                         </span>
                       </button>
@@ -713,7 +706,7 @@ export default function Browse() {
                   <div className="flex gap-2">
                     {/* Season Select */}
                     <div className="flex-1 relative group">
-                      <select 
+                      <select
                         className="w-full bg-[#1a1a1a] border border-white/5 rounded px-3 py-1.5 text-[11px] text-gray-400 appearance-none focus:outline-none focus:border-white/20 transition-colors"
                         value={filters.season || ""}
                         onChange={(e) => handleSingleSelect('season', e.target.value || null)}
@@ -729,7 +722,7 @@ export default function Browse() {
 
                     {/* Year Select */}
                     <div className="flex-1 relative group">
-                      <select 
+                      <select
                         className="w-full bg-[#1a1a1a] border border-white/5 rounded px-3 py-1.5 text-[11px] text-gray-400 appearance-none focus:outline-none focus:border-white/20 transition-colors"
                         value={filters.year || ""}
                         onChange={(e) => handleSingleSelect('year', e.target.value || null)}
@@ -744,7 +737,7 @@ export default function Browse() {
 
                     {/* Rating Select */}
                     <div className="flex-1 relative group">
-                      <select 
+                      <select
                         className="w-full bg-[#1a1a1a] border border-white/5 rounded px-3 py-1.5 text-[11px] text-gray-400 appearance-none focus:outline-none focus:border-white/20 transition-colors"
                         value={filters.rating || ""}
                         onChange={(e) => handleSingleSelect('rating', e.target.value || null)}
@@ -769,15 +762,14 @@ export default function Browse() {
                       ].map(c => {
                         const isActive = filters.country === c.value;
                         return (
-                          <button 
+                          <button
                             key={c.value}
                             type="button"
                             onClick={() => handleSingleSelect('country', isActive ? "" : c.value)}
                             className="flex items-center gap-2.5 group cursor-pointer"
                           >
-                            <div className={`w-3.5 h-3.5 rounded-sm border transition-all flex items-center justify-center ${
-                              isActive ? 'bg-red-600 border-red-600' : 'bg-transparent border-white/20 group-hover:border-white/40'
-                            }`}>
+                            <div className={`w-3.5 h-3.5 rounded-sm border transition-all flex items-center justify-center ${isActive ? 'bg-red-600 border-red-600' : 'bg-transparent border-white/20 group-hover:border-white/40'
+                              }`}>
                               {isActive && <div className="w-1.5 h-[1.5px] bg-white rounded-full rotate-45 translate-y-[0.5px] translate-x-[-1px]" />}
                               {isActive && <div className="w-2 h-[1.5px] bg-white rounded-full -rotate-45 translate-y-[-1px] translate-x-[1px]" />}
                             </div>
@@ -797,15 +789,14 @@ export default function Browse() {
                       {['Hard Sub', 'Soft Sub', 'Dub', 'Sub & Dub'].map(l => {
                         const isActive = filters.language.includes(l);
                         return (
-                          <button 
+                          <button
                             key={l}
                             type="button"
                             onClick={() => toggleFilter('language', l)}
                             className="flex items-center gap-2.5 group cursor-pointer"
                           >
-                            <div className={`w-3.5 h-3.5 rounded-sm border transition-all flex items-center justify-center ${
-                              isActive ? 'bg-red-600 border-red-600' : 'bg-transparent border-white/20 group-hover:border-white/40'
-                            }`}>
+                            <div className={`w-3.5 h-3.5 rounded-sm border transition-all flex items-center justify-center ${isActive ? 'bg-red-600 border-red-600' : 'bg-transparent border-white/20 group-hover:border-white/40'
+                              }`}>
                               {isActive && <div className="w-1.5 h-[1.5px] bg-white rounded-full rotate-45 translate-y-[0.5px] translate-x-[-1px]" />}
                               {isActive && <div className="w-2 h-[1.5px] bg-white rounded-full -rotate-45 translate-y-[-1px] translate-x-[1px]" />}
                             </div>
@@ -821,14 +812,13 @@ export default function Browse() {
                   {/* Extra Options Section */}
                   <div className="space-y-3">
                     <span className="text-[12px] font-medium text-white/90">Extra Options</span>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => handleSingleSelect('excludeMyList', !filters.excludeMyList)}
                       className="flex items-center gap-2.5 group cursor-pointer"
                     >
-                      <div className={`w-3.5 h-3.5 rounded-sm border transition-all flex items-center justify-center ${
-                        filters.excludeMyList ? 'bg-red-600 border-red-600' : 'bg-transparent border-white/20 group-hover:border-white/40'
-                      }`}>
+                      <div className={`w-3.5 h-3.5 rounded-sm border transition-all flex items-center justify-center ${filters.excludeMyList ? 'bg-red-600 border-red-600' : 'bg-transparent border-white/20 group-hover:border-white/40'
+                        }`}>
                         {filters.excludeMyList && <div className="w-1.5 h-[1.5px] bg-white rounded-full rotate-45 translate-y-[0.5px] translate-x-[-1px]" />}
                         {filters.excludeMyList && <div className="w-2 h-[1.5px] bg-white rounded-full -rotate-45 translate-y-[-1px] translate-x-[1px]" />}
                       </div>
@@ -839,8 +829,8 @@ export default function Browse() {
                   </div>
 
                   <hr className="border-white/5 mt-2" />
-                  
-                  <button 
+
+                  <button
                     type="button"
                     onClick={() => {
                       setSearchParams(prev => {
@@ -862,10 +852,9 @@ export default function Browse() {
 
           {/* Integrated Sort Control */}
           <div className="relative border-l border-white/5 filter-dropdown-container">
-            <button 
-              className={`flex items-center justify-center w-10 h-full transition-colors ${
-                openDropdown === 'sort' ? 'bg-red-600 text-white' : 'bg-white/[0.03] hover:bg-white/[0.06] text-white/20'
-              }`}
+            <button
+              className={`flex items-center justify-center w-10 h-full transition-colors ${openDropdown === 'sort' ? 'bg-red-600 text-white' : 'bg-white/[0.03] hover:bg-white/[0.06] text-white/20'
+                }`}
               onClick={() => setOpenDropdown(openDropdown === 'sort' ? null : 'sort')}
               title="Sort Options"
             >
@@ -889,24 +878,21 @@ export default function Browse() {
                   ].map(s => {
                     const isActive = filters.sort === s.value;
                     return (
-                      <button 
+                      <button
                         key={s.value}
                         onClick={() => {
                           handleSingleSelect('sort', s.value);
                           setOpenDropdown(null);
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
-                          isActive ? 'bg-red-600' : 'hover:bg-white/[0.05]'
-                        }`}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${isActive ? 'bg-red-600' : 'hover:bg-white/[0.05]'
+                          }`}
                       >
-                        <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${
-                          isActive ? 'bg-white border-white' : 'bg-transparent border-white/20'
-                        }`}>
+                        <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-colors ${isActive ? 'bg-white border-white' : 'bg-transparent border-white/20'
+                          }`}>
                           {isActive && <div className="w-1.5 h-1.5 bg-red-600 rounded-full" />}
                         </div>
-                        <span className={`text-[11px] font-medium whitespace-nowrap ${
-                          isActive ? 'text-white' : 'text-gray-400'
-                        }`}>
+                        <span className={`text-[11px] font-medium whitespace-nowrap ${isActive ? 'text-white' : 'text-gray-400'
+                          }`}>
                           {s.label}
                         </span>
                       </button>
@@ -918,7 +904,7 @@ export default function Browse() {
           </div>
 
           {/* Filter Action Button */}
-          <button 
+          <button
             className="flex items-center justify-center gap-2 px-6 h-full bg-red-600 hover:bg-red-700 text-white text-[12px] font-bold transition-all active:scale-95 shrink-0"
             onClick={() => {
               setOpenDropdown(null);
@@ -932,13 +918,13 @@ export default function Browse() {
 
         {/* Results Grid */}
         {loading && animeList.length === 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6 sm:gap-6 md:gap-8 gap-y-10 sm:gap-y-10">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3 md:gap-x-4 gap-y-7">
             {Array.from({ length: 18 }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
           </div>
         ) : animeList.length > 0 ? (
-          <div className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6 sm:gap-6 md:gap-8 gap-y-10 sm:gap-y-10 transition-opacity duration-300 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
+          <div className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3 md:gap-x-4 gap-y-7 transition-opacity duration-300 ${isFetching ? 'opacity-50' : 'opacity-100'}`}>
             {animeList.map((anime) => (
               <AnimeCard key={anime.id} anime={anime} />
             ))}
@@ -965,7 +951,7 @@ export default function Browse() {
             {(() => {
               const lastPage = result.pageInfo.lastPage;
               let pages = [];
-              
+
               // Smart Pagination Logic (Show 5 pages around current)
               let start = Math.max(1, page - 2);
               let end = Math.min(lastPage, start + 4);
@@ -977,11 +963,10 @@ export default function Browse() {
                   <button
                     key={i}
                     onClick={() => handlePageChange(i)}
-                    className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-[4px] text-[12px] sm:text-[13px] font-bold transition-all ${
-                      isActive 
-                        ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]' 
-                        : 'bg-white/[0.03] border border-white/5 text-white/40 hover:bg-white/[0.08] hover:text-white'
-                    }`}
+                    className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-[4px] text-[12px] sm:text-[13px] font-bold transition-all ${isActive
+                      ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]'
+                      : 'bg-white/[0.03] border border-white/5 text-white/40 hover:bg-white/[0.08] hover:text-white'
+                      }`}
                   >
                     {i}
                   </button>

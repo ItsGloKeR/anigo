@@ -108,16 +108,16 @@ export default function Navbar() {
         <div className="max-w-[1720px] mx-auto px-2 md:px-4 h-[56px] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-                onClick={() => {
-                  setSidebarTab("menu");
-                  setShowSidebar(true);
-                }}
-                className="lg:hidden text-white/80 hover:text-white transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
+              onClick={() => {
+                setSidebarTab("menu");
+                setShowSidebar(true);
+              }}
+              className="lg:hidden text-white/80 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
 
             {/* Logo */}
             {!isLandingPage && (
@@ -160,10 +160,10 @@ export default function Navbar() {
                       }
                     }}
                     className={`text-[11px] font-bold tracking-[1px] transition-all duration-200 px-3 py-1 rounded-[4px] flex items-center uppercase ${activeDropdown === link.dropdown && link.dropdown
+                      ? "text-red-500"
+                      : showSidebar && link.action === "sidebar"
                         ? "text-red-500"
-                        : showSidebar && link.action === "sidebar"
-                          ? "text-red-500"
-                          : "text-white/40 hover:text-white"
+                        : "text-white/40 hover:text-white"
                       }`}
                   >
                     {link.name}
@@ -200,7 +200,7 @@ export default function Navbar() {
                     <div
                       className="absolute top-[56px] left-0 -translate-x-[50px] bg-[#121212] border border-white/5 shadow-2xl p-5 w-[650px] z-110 rounded-b-[12px] animate-in fade-in slide-in-from-top-2 duration-200"
                     >
-                      <div className="grid grid-cols-5 gap-x-4 gap-y-2">
+                      <div className="grid grid-cols-5 gap-x-4 gap-y-7">
                         {ALL_GENRES.map((genre) => (
                           <Link
                             key={genre}

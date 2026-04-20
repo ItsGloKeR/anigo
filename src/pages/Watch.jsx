@@ -163,20 +163,20 @@ export default function Watch() {
   // 1. Compute Merged "You May Also Like" (Relations + Recommendations)
   const allRelated = useMemo(() => {
     if (!anime) return [];
-    
+
     // Get Relations (direct sequels/prequels)
     const relations = (anime.relations?.edges || [])
       .filter(edge => edge.node?.type === 'ANIME')
       .map(edge => edge.node);
-      
+
     // Get Recommendations (general suggestions)
     const recommendations = (anime.recommendations?.nodes || [])
       .map(node => node.mediaRecommendation)
       .filter(Boolean);
-      
+
     const merged = [...relations, ...recommendations];
     const seen = new Set();
-    
+
     // Filter out current anime and deduplicate
     return merged.filter(item => {
       if (!item || seen.has(item.id) || Number(item.id) === Number(id)) return false;
@@ -525,7 +525,7 @@ export default function Watch() {
       const epStr = String(ep);
       const kitsuData = kitsuEpisodes?.[ep] || kitsuEpisodes?.[epStr];
       const jikanData = malEpisodes?.find(e => e.mal_id === ep);
-      
+
       const title = (jikanData?.title || kitsuData?.title || "").toLowerCase();
       return epStr.includes(query) || title.includes(query);
     });
@@ -1146,7 +1146,7 @@ export default function Watch() {
                         onChange={(e) => setEpisodeSearchQuery(e.target.value)}
                         className="bg-transparent border-none outline-none text-[12px] text-white placeholder:text-white/20 w-full font-medium"
                       />
-                      <button 
+                      <button
                         onClick={() => {
                           setIsEpisodeSearchOpen(false);
                           setEpisodeSearchQuery("");
@@ -1166,9 +1166,9 @@ export default function Watch() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4 text-white/50">
-                        <Search 
-                          size={17} 
-                          className="hover:text-white cursor-pointer transition-colors" 
+                        <Search
+                          size={17}
+                          className="hover:text-white cursor-pointer transition-colors"
                           onClick={() => setIsEpisodeSearchOpen(true)}
                         />
                         <button
@@ -1225,7 +1225,7 @@ export default function Watch() {
                     <div className="flex flex-col items-center justify-center p-12 text-white/30 animate-in fade-in duration-300">
                       <Search size={32} className="mb-3 opacity-20" />
                       <span className="text-[13px] font-medium">No episodes found</span>
-                      <button 
+                      <button
                         onClick={() => setEpisodeSearchQuery("")}
                         className="mt-4 text-[11px] text-red-500 hover:text-red-400 font-bold uppercase tracking-widest transition-colors"
                       >
@@ -1537,7 +1537,7 @@ export default function Watch() {
               {/* Pixel-Perfect Rating Section (Right Column) */}
               <div className="flex flex-col gap-4 w-full md:w-[280px] lg:w-[320px] shrink-0">
                 <div className="bg-[#0d0d0d] border border-white/5 p-7 rounded-sm shadow-xl relative mt-0 md:mt-2 min-h-[160px] flex flex-col items-center justify-center">
-                  
+
                   {userRating ? (
                     <div className="text-center py-4 animate-in zoom-in duration-500">
                       <div className="flex justify-center mb-3">
@@ -1566,10 +1566,10 @@ export default function Watch() {
                             onClick={() => setUserRating(item.val)}
                             className="flex-1 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.02] h-20 flex items-center justify-center transition-all duration-300 rounded-[2px] group"
                           >
-                            <item.icon 
-                              size={28} 
+                            <item.icon
+                              size={28}
                               strokeWidth={1.5}
-                              className={`text-white/30 group-hover:text-white/80 transition-colors ${item.isHappy ? 'scale-110' : ''}`} 
+                              className={`text-white/30 group-hover:text-white/80 transition-colors ${item.isHappy ? 'scale-110' : ''}`}
                             />
                           </button>
                         ))}
@@ -1594,8 +1594,8 @@ export default function Watch() {
                 </header>
                 <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4">
                   {anime.characters.edges.slice(0, 8).map(edge => (
-                    <Link 
-                      key={edge.node.id} 
+                    <Link
+                      key={edge.node.id}
                       to={`/character/${edge.node.id}`}
                       className="group flex bg-[#0d0d0d] rounded-sm overflow-hidden border border-white/5 h-20 transition-all hover:bg-[#111] hover:border-red-600/30"
                     >
@@ -1621,9 +1621,9 @@ export default function Watch() {
                   <h2 className="text-[14px] font-bold tracking-[0.3em] text-white uppercase">You May Also Like</h2>
                 </header>
 
-                <div 
-                  key={recPageIndex} 
-                  className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-6 sm:gap-6 md:gap-8 gap-y-10 animate-slide-fade"
+                <div
+                  key={recPageIndex}
+                  className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3 md:gap-x-4 gap-y-7 animate-slide-fade"
                 >
                   {currentRecPageData.map((rec, i) => (
                     <div key={rec.id || i} className="animate-in fade-in duration-500" style={{ animationDelay: `${i * 30}ms` }}>
@@ -1641,11 +1641,10 @@ export default function Watch() {
                         disabled={isRecAnimating}
                         aria-label={`Go to page ${i + 1}`}
                         aria-current={i === recPageIndex}
-                        className={`min-w-[40px] h-10 flex items-center justify-center rounded-sm text-[13px] font-bold transition-all duration-300 ${
-                          i === recPageIndex 
-                            ? "bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]" 
-                            : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white border border-white/5"
-                        }`}
+                        className={`min-w-[40px] h-10 flex items-center justify-center rounded-sm text-[13px] font-bold transition-all duration-300 ${i === recPageIndex
+                          ? "bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]"
+                          : "bg-white/5 text-white/40 hover:bg-white/10 hover:text-white border border-white/5"
+                          }`}
                       >
                         {i + 1}
                       </button>
