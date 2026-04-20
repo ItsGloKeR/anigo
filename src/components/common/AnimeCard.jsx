@@ -71,19 +71,23 @@ export default function AnimeCard({ anime }) {
         </div>
       </div>
 
-      {/* CC Info Section (Professional Glass Pill Design) */}
-      <div className="flex justify-center -mt-[1px] relative z-20">
-        <div className="bg-[#050505]/90 backdrop-blur-md px-2.5 py-1 rounded-[4px] border border-white/5 flex items-center gap-2.5 shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
-          <div className="flex items-center gap-1.5 opacity-90 transition-opacity hover:opacity-100">
-             <span className="text-red-500">
-               <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                 <path d="M19 4H5C3.89 4 3 4.9 3 6V18C3 19.1 3.89 20 5 20H19C20.1 20 21 19.1 21 18V6C21 4.9 20.1 4 19 4M11 11H8.5V10.5H7V13.5H8.5V13H11V14.5C11 15.33 10.33 16 9.5 16H6C5.17 16 4.5 15.33 4.5 14.5V9.5C4.5 8.67 5.17 8 6 8H9.5C10.33 8 11 8.67 11 9.5V11M19.5 11H17V10.5H15.5V13.5H17V13H19.5V14.5C19.5 15.33 18.83 16 18 16H14.5C13.67 16 13 15.33 13 14.5V9.5C13 8.67 13.67 8 14.5 8H18C18.83 8 19.5 8.67 19.5 9.5V11Z" />
-               </svg>
-             </span>
-             <span className="text-[12px] font-bold text-white tracking-tight">{releasedEpisodes || "0"}</span>
+      {/* CC Info Section (New Cut-Shape Design) */}
+      <div className="flex justify-center -mt-[2px] relative z-20">
+        <div className="flex items-center bg-[#050505] rounded-[4px] border border-white/5 overflow-hidden shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+          {/* Cut-Corner CC Badge */}
+          <div 
+            className="bg-red-600 px-1.5 py-0.5 flex items-center justify-center relative"
+            style={{ clipPath: 'polygon(0 0, 100% 0, 100% 100%, 15% 100%, 0 85%)' }}
+          >
+            <span className="text-[10px] font-medium text-white italic tracking-tight">CC</span>
           </div>
-          <div className="w-[1px] h-2.5 bg-white/10" />
-          <span className="text-[11px] font-medium text-white/30 tracking-wide">{totalEpisodes}</span>
+          
+          {/* Episode Count */}
+          <div className="flex items-center px-2 py-0.5 gap-1.5">
+            <span className="text-[12px] font-normal text-white leading-none">{releasedEpisodes || "0"}</span>
+            <div className="w-[1px] h-2.5 bg-white/10" />
+            <span className="text-[10px] font-normal text-white/40 leading-none">{totalEpisodes}</span>
+          </div>
         </div>
       </div>
 
