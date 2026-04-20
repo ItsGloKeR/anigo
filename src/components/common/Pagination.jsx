@@ -5,15 +5,13 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
   if (totalPages <= 1) return null;
 
   const getPages = () => {
-    const pages = [];
-    const maxVisible = 5;
-    
-    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
+    const lastPage = totalPages;
+    let pages = [];
 
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
+    // Smart Pagination Logic (Show 5 pages around current)
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(lastPage, start + 4);
+    if (end === lastPage) start = Math.max(1, end - 4);
 
     for (let i = start; i <= end; i++) {
       pages.push(i);
@@ -24,58 +22,63 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
   const pages = getPages();
 
   return (
-    <div className="flex items-center justify-center gap-[6px] mt-10 mb-6 select-none font-sans">
-      {/* First Page */}
+    <div className="mt-12 sm:mt-16 pb-10 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 select-none font-sans">
+      {/* First Page Button */}
       <button
         onClick={() => onPageChange(1)}
         disabled={currentPage === 1}
-        className="w-11 h-11 rounded-lg bg-[#111] border border-white/5 hover:bg-[#1a1a1a] disabled:opacity-20 disabled:cursor-not-allowed transition-all flex items-center justify-center group"
+        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/[0.07] border border-white/10 rounded-[4px] text-white/70 hover:bg-white/[0.15] hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed group"
+        title="First Page"
       >
-        <ChevronsLeft className="w-4 h-4 text-[#55687a] group-hover:text-white transition-colors" />
+        <ChevronsLeft size={16} />
       </button>
 
-      {/* Previous Page */}
+      {/* Prev Button */}
       <button
-        onClick={() => onPageChange(currentPage - 1)}
+        onClick={() => onPageChange(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
-        className="w-11 h-11 rounded-lg bg-[#111] border border-white/5 hover:bg-[#1a1a1a] disabled:opacity-20 disabled:cursor-not-allowed transition-all flex items-center justify-center group"
+        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/[0.07] border border-white/10 rounded-[4px] text-white/70 hover:bg-white/[0.15] hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed group"
+        title="Previous Page"
       >
-        <ChevronLeft className="w-4 h-4 text-[#55687a] group-hover:text-white transition-colors" />
+        <ChevronLeft size={16} />
       </button>
 
       {/* Page Numbers */}
-      <div className="flex items-center gap-[6px]">
-        {pages.map((page) => (
+      {pages.map((i) => {
+        const isActive = i === currentPage;
+        return (
           <button
-            key={page}
-            onClick={() => onPageChange(page)}
-            className={`w-11 h-11 rounded-lg font-bold text-[15px] transition-all duration-300 flex items-center justify-center ${
-              currentPage === page
-                ? "bg-[#ff0000] text-white shadow-[0_0_20px_rgba(255,0,0,0.6)] z-10"
-                : "bg-[#111] text-[#55687a] border border-white/5 hover:bg-[#1a1a1a] hover:text-white"
+            key={i}
+            onClick={() => onPageChange(i)}
+            className={`w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-[4px] text-[12px] sm:text-[13px] font-bold transition-all ${
+              isActive
+                ? 'bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)] z-10'
+                : 'bg-white/[0.07] border border-white/10 text-white/70 hover:bg-white/[0.15] hover:text-white'
             }`}
           >
-            {page}
+            {i}
           </button>
-        ))}
-      </div>
+        );
+      })}
 
-      {/* Next Page */}
+      {/* Next Button */}
       <button
-        onClick={() => onPageChange(currentPage + 1)}
+        onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
-        className="w-11 h-11 rounded-lg bg-[#111] border border-white/5 hover:bg-[#1a1a1a] disabled:opacity-20 disabled:cursor-not-allowed transition-all flex items-center justify-center group"
+        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/[0.07] border border-white/10 rounded-[4px] text-white/70 hover:bg-white/[0.15] hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed group"
+        title="Next Page"
       >
-        <ChevronRight className="w-4 h-4 text-[#55687a] group-hover:text-white transition-colors" />
+        <ChevronRight size={16} />
       </button>
 
-      {/* Last Page */}
+      {/* Last Page Button */}
       <button
         onClick={() => onPageChange(totalPages)}
         disabled={currentPage === totalPages}
-        className="w-11 h-11 rounded-lg bg-[#111] border border-white/5 hover:bg-[#1a1a1a] disabled:opacity-20 disabled:cursor-not-allowed transition-all flex items-center justify-center group"
+        className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center bg-white/[0.07] border border-white/10 rounded-[4px] text-white/70 hover:bg-white/[0.15] hover:text-white transition-all disabled:opacity-20 disabled:cursor-not-allowed group"
+        title="Last Page"
       >
-        <ChevronsRight className="w-4 h-4 text-[#55687a] group-hover:text-white transition-colors" />
+        <ChevronsRight size={16} />
       </button>
     </div>
   );

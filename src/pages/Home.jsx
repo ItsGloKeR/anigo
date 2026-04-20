@@ -95,6 +95,7 @@ export default function Home() {
   });
   const latestUpdates = latestData?.media || [];
   const latestInfo = latestData?.pageInfo || { lastPage: 1 };
+  const latestTotalPages = latestInfo.lastPage || 1;
 
   /* Hero background images from popular posters */
   const bgImages = popular
@@ -123,7 +124,7 @@ export default function Home() {
         />
         <Pagination 
           currentPage={latestPage} 
-          totalPages={latestInfo.lastPage > 10 ? 10 : latestInfo.lastPage} 
+          totalPages={latestTotalPages > 4 ? 4 : latestTotalPages} 
           onPageChange={(p) => {
             setLatestPage(p);
             scrollToSection("latest-updates");
@@ -136,7 +137,7 @@ export default function Home() {
         <AnimeRow title="POPULAR THIS SEASON" data={popularThisSeason} isLoading={loadingSeason} limit={24} />
         <Pagination 
           currentPage={seasonPage} 
-          totalPages={seasonInfo.lastPage > 10 ? 10 : seasonInfo.lastPage} 
+          totalPages={seasonInfo.lastPage > 4 ? 4 : seasonInfo.lastPage} 
           onPageChange={(p) => {
             setSeasonPage(p);
             scrollToSection("popular-season");
@@ -149,7 +150,7 @@ export default function Home() {
         <AnimeRow title="TRENDING NOW" data={trending} isLoading={loadingTrending} limit={24} />
         <Pagination 
           currentPage={trendingPage} 
-          totalPages={trendingInfo.lastPage > 10 ? 10 : trendingInfo.lastPage} 
+          totalPages={trendingInfo.lastPage > 4 ? 4 : trendingInfo.lastPage} 
           onPageChange={(p) => {
             setTrendingPage(p);
             scrollToSection("trending-now");

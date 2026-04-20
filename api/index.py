@@ -453,55 +453,64 @@ class AniwatchScraper:
     BASE = "https://aniwatchtv.to"
 
     @cached("aniwatch:recent", ttl=300)
-    def get_recent_episodes(self, type="dub", limit=24):
-        """Fetch recently updated episodes across multiple pages to meet the limit."""
+    def get_recent_episodes(self, type="dub", limit=24, page=1):
+        """Fetch recently updated episodes with true pagination support."""
         results = []
-        # Fetch top 3 pages to ensure enough dubbed results
-        for page in range(1, 4):
-            if len(results) >= limit:
-                break
-                
-            try:
-                html = http.get_html(f"{self.BASE}/recently-updated", params={"page": page})
-                soup = BeautifulSoup(html, "html.parser")
-                items = soup.select(".flw-item")
-                
-                for item in items:
-                    tick_dub = item.select_one(".tick-dub")
-                    if type == "dub" and not tick_dub:
-                        continue
-                        
-                    title_tag = item.select_one(".film-name a")
-                    poster_img = item.select_one(".film-poster img")
+        try:
+            url = f"{self.BASE}/recently-updated"
+            params = {"page": page}
+            html = http.get_html(url, params=params)
+            soup = BeautifulSoup(html, "html.parser")
+            
+            # Extract pagination info
+            last_page = 1
+            pagination = soup.select_one(".pagination")
+            if pagination:
+                pages = pagination.select("li.page-item a.page-link")
+                for p in pages:
+                    href = p.get("href", "")
+                    if "page=" in href:
+                        try:
+                            p_num = int(href.split("page=")[-1].split("&")[0])
+                            if p_num > last_page:
+                                last_page = p_num
+                        except:
+                            continue
+            
+            items = soup.select(".flw-item")
+            for item in items:
+                tick_dub = item.select_one(".tick-dub")
+                # If specifically dub is requested, filter it
+                if type == "dub" and not tick_dub:
+                    continue
                     
-                    if not title_tag:
-                        continue
-                        
-                    slug = str(title_tag.get("href", "")).replace("/watch/", "").lstrip("/")
-                    
-                    # Avoid duplicates across pages
-                    if any(r["id"] == slug for r in results):
-                        continue
-                        
-                    results.append({
-                        "id": slug,
-                        "title": {
-                            "romaji": title_tag.get_text(strip=True),
-                            "english": title_tag.get_text(strip=True)
-                        },
-                        "coverImage": {
-                            "large": poster_img.get("data-src") or poster_img.get("src") if poster_img else "",
-                            "extraLarge": poster_img.get("data-src") or poster_img.get("src") if poster_img else ""
-                        },
-                        "episodes": tick_dub.get_text(strip=True) if tick_dub else "?",
-                        "format": "TV",
-                        "status": "RELEASING"
-                    })
-            except Exception as e:
-                log.error("Aniwatch: Page %s fetch failed: %s", page, e)
-                break
+                title_tag = item.select_one(".film-name a")
+                poster_img = item.select_one(".film-poster img")
                 
-        return results[:limit]
+                if not title_tag:
+                    continue
+                    
+                slug = str(title_tag.get("href", "")).replace("/watch/", "").lstrip("/")
+                
+                results.append({
+                    "id": slug,
+                    "title": {
+                        "romaji": title_tag.get_text(strip=True),
+                        "english": title_tag.get_text(strip=True)
+                    },
+                    "coverImage": {
+                        "large": poster_img.get("data-src") or poster_img.get("src") if poster_img else "",
+                        "extraLarge": poster_img.get("data-src") or poster_img.get("src") if poster_img else ""
+                    },
+                    "episodes": tick_dub.get_text(strip=True) if tick_dub else "?",
+                    "format": "TV",
+                    "status": "RELEASING"
+                })
+            
+            return {"results": results[:limit], "pageInfo": {"lastPage": last_page, "currentPage": page}}
+        except Exception as e:
+            log.error("Aniwatch: Page %s fetch failed: %s", page, e)
+            return {"results": [], "pageInfo": {"lastPage": 1, "currentPage": page}}
 
     @cached("aniwatch:search", ttl=300)
     def search(self, keyword):
@@ -822,8 +831,12 @@ def api_aniwatch_info(aniwatch_id):
 @api_response
 def api_python_recent_dub():
     limit = request.args.get("limit", 24, type=int)
-    results = aniwatch.get_recent_episodes(type="dub", limit=limit)
-    return {"media": results}
+    page = request.args.get("page", 1, type=int)
+    data = aniwatch.get_recent_episodes(type="dub", limit=limit, page=page)
+    return {
+        "media": data["results"],
+        "pageInfo": data["pageInfo"]
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

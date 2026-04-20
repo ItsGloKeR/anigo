@@ -16,9 +16,14 @@ const PYTHON_API = import.meta.env.PROD ? "" : "http://127.0.0.1:5000";
 
 async function fetchFromAniList(query, variables = {}) {
   try {
-    // Clean up variables to remove null/undefined values
+    // Clean up variables to remove null/undefined/empty-string values
     const cleanVariables = Object.fromEntries(
-      Object.entries(variables).filter(([, v]) => v !== null && v !== undefined && (Array.isArray(v) ? v.length > 0 : true))
+      Object.entries(variables).filter(([, v]) => 
+        v !== null && 
+        v !== undefined && 
+        v !== "" && 
+        (Array.isArray(v) ? v.length > 0 : true)
+      )
     );
 
     const { data } = await axios.post(`${PYTHON_API}/api/anilist/proxy`, {
@@ -52,6 +57,7 @@ async function fetchFromAniList(query, variables = {}) {
 const ANIME_QUERY = `
   query ($page: Int, $sort: [MediaSort]) {
     Page(page: $page, perPage: 30) {
+      pageInfo { total currentPage lastPage hasNextPage perPage }
       media(type: ANIME, sort: $sort) {
         id
         title { romaji english native }
@@ -125,10 +131,10 @@ export async function getGenres() {
 }
 
 export const BROWSE_QUERY = `
-  query ($page: Int, $perPage: Int, $search: String, $format_in: [MediaFormat], $sort: [MediaSort], $seasonYear: Int, $status: MediaStatus, $genre_in: [String], $tag_in: [String], $season: MediaSeason, $country: CountryCode) {
+  query ($page: Int, $perPage: Int, $search: String, $format_in: [MediaFormat], $sort: [MediaSort], $seasonYear: Int, $status: MediaStatus, $genre_in: [String], $tag_in: [String], $season: MediaSeason, $country: CountryCode, $averageScore_greater: Int) {
     Page(page: $page, perPage: $perPage) {
       pageInfo { total currentPage lastPage hasNextPage perPage }
-      media(type: ANIME, search: $search, format_in: $format_in, sort: $sort, seasonYear: $seasonYear, status: $status, genre_in: $genre_in, tag_in: $tag_in, season: $season, countryOfOrigin: $country) {
+      media(type: ANIME, search: $search, format_in: $format_in, sort: $sort, seasonYear: $seasonYear, status: $status, genre_in: $genre_in, tag_in: $tag_in, season: $season, countryOfOrigin: $country, averageScore_greater: $averageScore_greater) {
         id
         title { romaji english native }
         coverImage { extraLarge large medium }
@@ -207,8 +213,8 @@ export async function getBrowseAnimeMAL(variables) {
 
   // Map genre names to MAL IDs
   const malGenreIds = genres.map(g => MAL_GENRE_MAP[g]).filter(Boolean);
-
-  let url = `https://api.jikan.moe/v4/anime?page=${page}&limit=24`;
+  const limit = 54;
+  let url = `https://api.jikan.moe/v4/anime?page=${page}&limit=${limit}`;
   if (search) url += `&q=${encodeURIComponent(search)}`;
   if (malGenreIds.length > 0) url += `&genres=${malGenreIds.join(',')}`;
 
@@ -263,6 +269,7 @@ export async function getBrowseAnimeMAL(variables) {
 const SEASONAL_QUERY = `
   query ($season: MediaSeason, $seasonYear: Int, $sort: [MediaSort], $page: Int) {
     Page(page: $page, perPage: 30) {
+      pageInfo { total currentPage lastPage hasNextPage perPage }
       media(type: ANIME, season: $season, seasonYear: $seasonYear, sort: $sort) {
         id
         title { romaji english native }
