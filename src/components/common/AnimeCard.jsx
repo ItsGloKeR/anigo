@@ -88,7 +88,7 @@ export default function AnimeCard({ anime }) {
       </div>
 
       {/* Title Section */}
-      <div className="w-full mt-2">
+      <div className="w-full mt-2 text-center px-1">
         <h3 className="text-[13px] md:text-[14px] font-normal text-white/80 line-clamp-2 leading-[1.4] group-hover:text-red-500 transition-colors">
           {getTitle(anime.title)}
         </h3>
