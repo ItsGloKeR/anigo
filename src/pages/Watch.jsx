@@ -82,6 +82,7 @@ export default function Watch() {
 
   const [episodePage, setEpisodePage] = useState(0);
   const [hasDub, setHasDub] = useState(false);
+  const [verifiedDubAvailable, setVerifiedDubAvailable] = useState(false);
   const [isDescExpanded, setIsDescExpanded] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [episodeSearchQuery, setEpisodeSearchQuery] = useState("");

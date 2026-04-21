@@ -11,9 +11,6 @@ from functools import wraps
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from bs4 import BeautifulSoup
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 import cloudscraper
 
 
@@ -73,17 +70,8 @@ class HttpClient:
                 'desktop': True
             }
         )
-        retry_strategy = Retry(
-            total=retries,
-            backoff_factor=backoff,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "POST"] # Allow POST retries for GraphQL
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
         self.session.headers.update(self.DEFAULT_HEADERS)
-        log.info("HttpClient initialized — retries=%d, backoff=%ds", retries, backoff)
+        log.info("HttpClient initialized — retries handled by cloudscraper")
 
     def get(self, url, params=None, headers=None, referer=None, timeout=None):
         """GET request with optional overrides."""
@@ -588,8 +576,20 @@ class GogoanimeScraper:
             html = http.get_html(url)
             soup = BeautifulSoup(html, "html.parser")
             
-            # Extract pagination info (Gogoanime doesn't have explicit last page on homepage)
-            # We'll assume hasNextPage based on whether items are found
+            # Extract pagination info
+            last_page = page
+            pagination = soup.select_one("div.anime_name.new_series > div.pagination")
+            if pagination:
+                pages = pagination.select("ul li a")
+                for p in pages:
+                    href = p.get("href", "")
+                    if "page=" in href:
+                        try:
+                            p_num = int(href.split("page=")[-1].split("&")[0])
+                            if p_num > last_page:
+                                last_page = p_num
+                        except:
+                            continue
             
             items = soup.select("div.last_episodes ul.items li")
             for item in items:
@@ -633,12 +633,10 @@ class GogoanimeScraper:
             soup = BeautifulSoup(html, "html.parser")
             
             results = []
-            # Based on the HTML we saw, search results might be in nav.menu_series or similar
-            # Let's try a more general selector
-            items = soup.select(".last_episodes ul.items li") or soup.select("nav.menu_series ul li")
+            items = soup.select("div.last_episodes ul.items li")
             
             for item in items:
-                title_tag = item.select_one("p.name a") or item.select_one("a[title]")
+                title_tag = item.select_one("p.name a")
                 if not title_tag:
                     continue
                 
@@ -783,11 +781,11 @@ class GogoanimeScraper:
                         best_match = r
                         break
             
-            log.info(f"Resolved '{slug}' -> AniList ID: {best_match['id']}")
+            log.info(f"Resolved Gogoanime '{slug}' -> AniList ID: {best_match['id']}")
             return {"anilist_id": best_match["id"], "title": best_match["title"]}
             
         except Exception as e:
-            log.error(f"Resolution failed: {e}")
+            log.error(f"Gogoanime resolution failed: {e}")
             return None
 
 class KitsuScraper:
@@ -878,8 +876,9 @@ def index():
             "/api/anikai/info/<slug>": "Anikai info",
             "/api/anikai/episodes/<ani_id>": "Anikai episodes",
             "/api/anikai/stream/<ep_token>": "Anikai stream",
-            "/api/aniwatch/search?keyword=": "Search Aniwatch",
-            "/api/aniwatch/episodes/<id>": "Aniwatch episodes",
+            "/api/gogoanime/search?keyword=": "Search Gogoanime",
+            "/api/gogoanime/info/<slug>": "Gogoanime info",
+            "/api/gogoanime/episodes/<gogoanime_id>": "Gogoanime episodes",
             "/api/malsync/<mal_id>": "MALSync lookup",
             "/api/meta/episodes?title=": "Fallback episode metadata (Kitsu)",
         },
@@ -966,34 +965,7 @@ def api_anikai_stream(ep_token):
     return {"error": last_err}, 500
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  API ROUTES — Aniwatch
-# ═══════════════════════════════════════════════════════════════════════════════
 
-@app.route("/api/aniwatch/search", methods=["GET"])
-@api_response
-def api_aniwatch_search():
-    keyword = request.args.get("keyword", "").strip()
-    if not keyword:
-        return {"error": "Keyword required"}, 400
-    results = aniwatch.search(keyword)
-    return {"results": results}
-
-
-@app.route("/api/aniwatch/episodes/<aniwatch_id>", methods=["GET"])
-@api_response
-def api_aniwatch_episodes(aniwatch_id):
-    eps = aniwatch.get_episodes(aniwatch_id)
-    return {"aniwatch_id": aniwatch_id, "count": len(eps), "episodes": eps}
-
-
-@app.route("/api/aniwatch/info/<aniwatch_id>", methods=["GET"])
-@api_response
-def api_aniwatch_info(aniwatch_id):
-    info = aniwatch.get_info(aniwatch_id)
-    if info:
-        return info
-    return {"error": "Not found"}, 404
 
 
 @app.route("/api/python/resolve/<slug>", methods=["GET"])
