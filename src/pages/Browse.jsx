@@ -340,7 +340,7 @@ export default function Browse() {
                 <div key={dd.key} className="flex-1 relative flex items-center border-r border-white/5 group">
                   <button
                     onClick={() => setOpenDropdown(openDropdown === dd.key ? null : dd.key)}
-                    className={`w-full h-full flex items-center justify-between px-6 transition-all hover:bg-white/[0.02] ${openDropdown === dd.key ? 'bg-white/[0.03]' : ''}`}
+                    className={`w-full h-full flex items-center justify-between px-6 transition-all hover:bg-white/2 ${openDropdown === dd.key ? 'bg-white/3' : ''}`}
                   >
                     <span className={`text-[11px] uppercase tracking-[0.2em] font-medium transition-colors ${dd.active ? 'text-red-500' : 'text-white/40'}`}>
                       {dd.label}
@@ -350,8 +350,8 @@ export default function Browse() {
 
                   {openDropdown === dd.key && (
                     <>
-                      <div className="fixed inset-0 z-[90]" onClick={() => setOpenDropdown(null)} />
-                      <div className={`absolute top-[calc(100%+8px)] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-[100] ${
+                      <div className="fixed inset-0 z-90" onClick={() => setOpenDropdown(null)} />
+                      <div className={`absolute top-[calc(100%+8px)] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-100 ${
                         dd.key === 'genre' ? 'w-[540px] max-w-[calc(100vw-32px)] left-1/2 -translate-x-1/2' : 
                         dd.key === 'advanced' ? 'right-0' : 'w-40 left-0'
                       }`}>
@@ -367,7 +367,7 @@ export default function Browse() {
                                 }}
                                 className={`w-full px-3 py-1.5 rounded-lg text-left text-[11px] transition-all flex items-center justify-between group ${(dd.key === 'types' ? filters.formats.includes(opt.value) : filters.status === opt.value)
                                     ? 'bg-red-600/10 text-red-500 font-medium'
-                                    : 'text-white/40 hover:bg-white/[0.03] hover:text-white'
+                                    : 'text-white/40 hover:bg-white/3 hover:text-white'
                                   }`}
                               >
                                 <span>{opt.label}</span>
@@ -386,7 +386,7 @@ export default function Browse() {
                                   onClick={() => toggleGenre(opt)}
                                   className={`px-2 py-1.5 rounded text-left text-[10px] transition-all flex items-center justify-between group ${filters.include.includes(opt)
                                       ? 'bg-red-600/10 text-red-500 font-medium border border-red-500/20'
-                                      : 'text-white/30 border border-transparent hover:bg-white/[0.03] hover:text-white/60'
+                                      : 'text-white/30 border border-transparent hover:bg-white/3 hover:text-white/60'
                                     }`}
                                 >
                                   <span className="truncate">{opt}</span>
@@ -411,7 +411,7 @@ export default function Browse() {
                                     <select 
                                       value={filters[key]} 
                                       onChange={(e) => setSingleFilter(key, e.target.value)}
-                                      className="w-full h-7 bg-white/[0.03] border border-white/5 rounded-md px-2 pr-6 text-[10px] text-white/80 outline-none hover:bg-white/[0.06] transition-all cursor-pointer appearance-none"
+                                      className="w-full h-7 bg-white/3 border border-white/5 rounded-md px-2 pr-6 text-[10px] text-white/80 outline-none hover:bg-white/6 transition-all cursor-pointer appearance-none"
                                     >
                                       <option value="" className="bg-[#0d0d0d]">{key === 'season' ? 'Season' : 'Year'}</option>
                                       {key === 'season' 
@@ -492,7 +492,7 @@ export default function Browse() {
 
               <button
                 onClick={handleShuffleSort}
-                className="w-16 h-full flex items-center justify-center transition-all hover:bg-white/[0.04] text-white/20 hover:text-red-500 border-r border-white/5"
+                className="w-16 h-full flex items-center justify-center transition-all hover:bg-white/4 text-white/20 hover:text-red-500 border-r border-white/5"
               >
                 <RefreshCw size={16} className={isFetching ? 'animate-spin' : ''} />
               </button>
@@ -501,7 +501,7 @@ export default function Browse() {
                 onClick={() => refetch()}
                 className="px-10 bg-red-600 text-white flex items-center gap-4 rounded-r-xl group active:scale-95 transition-all overflow-hidden relative"
               >
-                <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                <div className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
                 <span className="text-[13px] font-normal uppercase tracking-[0.2em] relative z-10">Sync</span>
                 <ArrowRight size={16} className="relative z-10 group-hover:translate-x-1 transition-transform" />
               </button>
@@ -539,7 +539,7 @@ export default function Browse() {
                   <div key={dd.key} className={`${dd.key === "genre" ? "static group" : "relative group"}`}>
                     <button
                       onClick={() => setOpenDropdown(openDropdown === dd.key ? null : dd.key)}
-                      className={`w-full h-10 flex items-center justify-between px-4 rounded-lg border border-white/10 bg-black/20 transition-all hover:bg-white/[0.03] ${openDropdown === dd.key ? "bg-white/[0.06]" : ""}`}
+                      className={`w-full h-10 flex items-center justify-between px-4 rounded-lg border border-white/10 bg-black/20 transition-all hover:bg-white/3 ${openDropdown === dd.key ? "bg-white/6" : ""}`}
                     >
                       <span className={`text-[10px] uppercase tracking-[0.18em] font-medium transition-colors ${dd.active ? "text-red-500" : "text-white/50"}`}>
                         {dd.label}
@@ -552,9 +552,9 @@ export default function Browse() {
 
                     {openDropdown === dd.key && (
                       <>
-                        <div className="fixed inset-0 z-[90]" onClick={() => setOpenDropdown(null)} />
+                        <div className="fixed inset-0 z-90" onClick={() => setOpenDropdown(null)} />
                         <div
-                          className={`absolute top-full mt-2 bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-[100] ${
+                          className={`absolute top-full mt-2 bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-100 ${
                             dd.key === "genre"
                               ? "left-0 right-0 w-auto max-h-[70vh] overflow-y-auto"
                               : dd.key === "advanced"
@@ -572,10 +572,10 @@ export default function Browse() {
                                     setOpenDropdown(null);
                                   }}
                                   className={`w-full px-3 py-1.5 rounded-lg text-left text-[11px] transition-all flex items-center justify-between group ${
-                                    dd.key === "types" ? (filters.formats.includes(opt.value) ? "bg-red-600/10 text-red-500 font-medium" : "text-white/40 hover:bg-white/[0.03] hover:text-white")
+                                    dd.key === "types" ? (filters.formats.includes(opt.value) ? "bg-red-600/10 text-red-500 font-medium" : "text-white/40 hover:bg-white/3 hover:text-white")
                                     : filters.status === opt.value
                                     ? "bg-red-600/10 text-red-500 font-medium"
-                                    : "text-white/40 hover:bg-white/[0.03] hover:text-white"
+                                    : "text-white/40 hover:bg-white/3 hover:text-white"
                                   }`}
                                 >
                                   <span>{opt.label}</span>
@@ -595,7 +595,7 @@ export default function Browse() {
                                     className={`px-2 py-1.5 rounded text-left text-[10px] transition-all flex items-center justify-between group ${
                                       filters.include.includes(opt)
                                         ? "bg-red-600/10 text-red-500 font-medium border border-red-500/20"
-                                        : "text-white/30 border border-transparent hover:bg-white/[0.03] hover:text-white/60"
+                                        : "text-white/30 border border-transparent hover:bg-white/3 hover:text-white/60"
                                     }`}
                                   >
                                     <span className="truncate">{opt}</span>
@@ -632,7 +632,7 @@ export default function Browse() {
                                       <select
                                         value={filters[key]}
                                         onChange={e => setSingleFilter(key, e.target.value)}
-                                        className="w-full h-7 bg-white/[0.03] border border-white/5 rounded-md px-2 pr-6 text-[10px] text-white/80 outline-none hover:bg-white/[0.06] transition-all cursor-pointer appearance-none"
+                                        className="w-full h-7 bg-white/3 border border-white/5 rounded-md px-2 pr-6 text-[10px] text-white/80 outline-none hover:bg-white/6 transition-all cursor-pointer appearance-none"
                                       >
                                         <option value="" className="bg-[#0d0d0d]">
                                           {key === "season" ? "Season" : "Year"}
@@ -787,9 +787,9 @@ export default function Browse() {
                 </button>
                 <button
                   onClick={() => refetch()}
-                  className="flex-[2] h-10 bg-red-600 text-white flex items-center justify-center gap-3 rounded-lg active:scale-95 transition-all overflow-hidden relative"
+                  className="flex-2 h-10 bg-red-600 text-white flex items-center justify-center gap-3 rounded-lg active:scale-95 transition-all overflow-hidden relative"
                 >
-                  <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-white/10 -translate-x-full group-hover:translate-x-full transition-transform duration-500" />
                   <span className="text-[11px] font-normal uppercase tracking-[0.2em] relative z-10">Sync</span>
                   <ArrowRight size={14} className="relative z-10" />
                 </button>
