@@ -1127,28 +1127,54 @@ export default function Watch() {
                 {/* AutoPlay */}
                 <button
                   onClick={() => setAutoPlay(!autoPlay)}
-                  className={`flex items-center gap-2 transition-all ${autoPlay ? 'text-red-600' : 'text-white/40 hover:text-white'}`}
+                  className="flex items-center gap-2 group transition-all"
                 >
-                  <PlayCircle size={16} fill={autoPlay ? "currentColor" : "none"} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">AutoPlay</span>
+                  <div className="relative">
+                    <PlayCircle
+                      size={16}
+                      fill="none"
+                      className={`transition-all ${autoPlay ? 'text-white' : 'text-white/40 group-hover:text-white'} group-hover:scale-110`}
+                    />
+                    {autoPlay && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />}
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider hidden sm:inline transition-colors ${autoPlay ? 'text-red-500' : 'text-white/40 group-hover:text-white'}`}>
+                    AutoPlay
+                  </span>
                 </button>
 
                 {/* AutoNext */}
                 <button
                   onClick={() => setAutoNext(!autoNext)}
-                  className={`flex items-center gap-2 transition-all ${autoNext ? 'text-red-600' : 'text-white/40 hover:text-white'}`}
+                  className="flex items-center gap-2 group transition-all"
                 >
-                  <FastForward size={16} fill={autoNext ? "currentColor" : "none"} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">AutoNext</span>
+                  <div className="relative">
+                    <FastForward
+                      size={16}
+                      fill="none"
+                      className={`transition-all ${autoNext ? 'text-white' : 'text-white/40 group-hover:text-white'} group-hover:scale-110`}
+                    />
+                    {autoNext && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />}
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider hidden sm:inline transition-colors ${autoNext ? 'text-red-500' : 'text-white/40 group-hover:text-white'}`}>
+                    AutoNext
+                  </span>
                 </button>
 
                 {/* AutoSkip */}
                 <button
                   onClick={() => setAutoSkip(!autoSkip)}
-                  className={`flex items-center gap-2 transition-all ${autoSkip ? 'text-red-600' : 'text-white/40 hover:text-white'}`}
+                  className="flex items-center gap-2 group transition-all"
                 >
-                  <Scissors size={16} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider hidden sm:inline">AutoSkip</span>
+                  <div className="relative">
+                    <Scissors
+                      size={16}
+                      className={`transition-all ${autoSkip ? 'text-white' : 'text-white/40 group-hover:text-white'} group-hover:scale-110`}
+                    />
+                    {autoSkip && <span className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />}
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider hidden sm:inline transition-colors ${autoSkip ? 'text-red-500' : 'text-white/40 group-hover:text-white'}`}>
+                    AutoSkip
+                  </span>
                 </button>
 
                 {/* Add Skiptime */}
