@@ -143,13 +143,13 @@ export default function Portal() {
                   </p>
                   <p className="text-[13px] leading-[1.6] text-white/50 font-medium">
                     However, not all platforms deliver an exceptional experience. Among the myriad options, 
-                    <span className="text-red-500"> anixo.online </span> shines as a beacon of excellence for enthusiasts.
+                    <span className="text-red-500"> Anixo.online </span> shines as a beacon of excellence for enthusiasts.
                   </p>
                 </div>
 
                 <div className="space-y-3">
                   <h3 className="text-[16px] font-bold text-white/90">
-                     1. What is anixo.online?
+                     1. What is Anixo.online?
                   </h3>
                   <p className="text-[12px] leading-[1.6] text-white/40">
                     AniXo is a premium anime platform that offers a safe, fast, and high-quality streaming experience. 
