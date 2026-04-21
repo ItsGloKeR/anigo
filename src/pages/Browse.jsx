@@ -293,7 +293,7 @@ export default function Browse() {
                     <>
                       <div className="fixed inset-0 z-[90]" onClick={() => setOpenDropdown(null)} />
                       <div className={`absolute top-[calc(100%+8px)] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-[100] ${
-                        dd.key === 'genre' ? 'w-[540px] left-1/2 -translate-x-1/2' : 
+                        dd.key === 'genre' ? 'w-[540px] max-w-[calc(100vw-32px)] left-1/2 -translate-x-1/2' : 
                         dd.key === 'advanced' ? 'right-0' : 'w-40 left-0'
                       }`}>
 
@@ -497,7 +497,7 @@ export default function Browse() {
                         <div
                           className={`absolute top-[calc(100%+8px)] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-[100] ${
                             dd.key === "genre"
-                              ? "w-[calc(100vw-32px)] left-1/2 -translate-x-1/2"
+                              ? "left-0 right-0 w-auto"
                               : dd.key === "advanced"
                               ? "right-0"
                               : "w-40 left-0"
