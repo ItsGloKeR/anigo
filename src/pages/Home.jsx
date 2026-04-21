@@ -18,10 +18,10 @@ import AlphabetNav from "../components/home/AlphabetNav";
 import EstimatedSchedule from "../components/home/EstimatedSchedule";
 
 export default function Home() {
-  const [activeLatestTab, setActiveLatestTab] = useState("All");
+  const [activeSeasonTab, setActiveSeasonTab] = useState("All");
+  const cardsPerPage = 36;
 
   // Pagination States
-  const [latestPage, setLatestPage] = useState(1);
   const [trendingPage, setTrendingPage] = useState(1);
   const [seasonPage, setSeasonPage] = useState(1);
 
@@ -34,6 +34,52 @@ export default function Home() {
         behavior: "smooth"
       });
     }
+  };
+
+  const getStableDubPage = async (page) => {
+    const startIndex = (page - 1) * cardsPerPage;
+    const endIndex = startIndex + cardsPerPage;
+    const collected = [];
+    const seen = new Set();
+    let sourcePage = 1;
+    let sourceLastPage = 1;
+    let guard = 0;
+
+    while (collected.length < endIndex && guard < 20) {
+      const dubRes = await getRecentDubs(sourcePage, cardsPerPage);
+      const media = dubRes.media || [];
+
+      media.forEach((anime) => {
+        const key = String(
+          anime.id ?? `${anime.title?.romaji || anime.title?.english || "unknown"}-${anime.episodes || ""}`
+        );
+        if (seen.has(key)) return;
+        seen.add(key);
+        collected.push(anime);
+      });
+
+      sourceLastPage = dubRes.pageInfo?.lastPage || sourceLastPage;
+      if (sourcePage >= sourceLastPage) break;
+      sourcePage += 1;
+      guard += 1;
+    }
+
+    const pageMedia = collected.slice(startIndex, endIndex);
+    const hasNextDubPage = collected.length > endIndex || sourcePage < sourceLastPage;
+    const dubLastPage = hasNextDubPage
+      ? Math.max(page + 1, Math.ceil(Math.max(collected.length, endIndex) / cardsPerPage))
+      : Math.max(1, Math.ceil(collected.length / cardsPerPage));
+
+    return {
+      media: pageMedia,
+      pageInfo: {
+        total: collected.length,
+        currentPage: page,
+        lastPage: dubLastPage,
+        hasNextPage: hasNextDubPage,
+        perPage: cardsPerPage,
+      },
+    };
   };
 
   const { data: trendingData, isLoading: loadingTrending } = useQuery({
@@ -50,8 +96,34 @@ export default function Home() {
   const popular = popularData?.media || [];
 
   const { data: popularThisSeasonData, isLoading: loadingSeason } = useQuery({
-    queryKey: ["popularThisSeason", seasonPage],
-    queryFn: () => getPopularThisSeason(seasonPage),
+    queryKey: ["popularThisSeason", activeSeasonTab, seasonPage],
+    queryFn: async () => {
+      if (activeSeasonTab === "Dub") {
+        return await getStableDubPage(seasonPage);
+      }
+
+      if (activeSeasonTab === "China") {
+        const date = new Date();
+        const month = date.getMonth();
+        const year = date.getFullYear();
+
+        let season = "WINTER";
+        if (month >= 2 && month <= 4) season = "SPRING";
+        else if (month >= 5 && month <= 7) season = "SUMMER";
+        else if (month >= 8 && month <= 10) season = "FALL";
+
+        return await getBrowseAnime({
+          page: seasonPage,
+          perPage: cardsPerPage,
+          season,
+          seasonYear: year,
+          country: "CN",
+          sort: ["POPULARITY_DESC"],
+        });
+      }
+
+      return await getPopularThisSeason(seasonPage);
+    },
   });
   const popularThisSeason = popularThisSeasonData?.media || [];
   const seasonInfo = popularThisSeasonData?.pageInfo || { lastPage: 1 };
@@ -61,41 +133,6 @@ export default function Home() {
     queryFn: () => getNewReleases(1),
   });
   const newReleases = newReleasesData?.media || [];
-
-  // Latest Updates query based on active tab
-  const { data: latestData, isLoading: loadingLatest } = useQuery({
-    queryKey: ["latestUpdates", activeLatestTab, latestPage],
-    queryFn: async () => {
-      try {
-        if (activeLatestTab === "Dub") {
-          return await getRecentDubs(latestPage);
-        }
-
-        const variables = {
-          page: latestPage,
-          perPage: 24,
-          sort: activeLatestTab === "China"
-            ? ["TRENDING_DESC", "POPULARITY_DESC"]
-            : ["UPDATED_AT_DESC"],
-          isAdult: false,
-        };
-
-        if (activeLatestTab === "China") {
-          variables.country = "CN";
-        }
-
-        return await getBrowseAnime(variables);
-      } catch (err) {
-        console.error("Latest Updates fetch failed:", err);
-        return { media: [], pageInfo: { lastPage: 1 } };
-      }
-    },
-    staleTime: 5 * 60 * 1000,
-    retry: 1,
-  });
-  const latestUpdates = latestData?.media || [];
-  const latestInfo = latestData?.pageInfo || { lastPage: 1 };
-  const latestTotalPages = latestInfo.lastPage || 1;
 
   /* Hero background images from popular posters */
   const bgImages = popular
@@ -108,33 +145,20 @@ export default function Home() {
       <Navbar />
       <Hero bgImages={bgImages} />
 
-      {/* Latest Updates */}
-      <div id="latest-updates">
-        <AnimeRow
-          title="LATEST UPDATES"
-          data={latestUpdates}
-          isLoading={loadingLatest}
-          limit={24}
-          tabs={["All", "Sub", "Dub", "China"]}
-          activeTab={activeLatestTab}
-          onTabChange={(tab) => {
-            setActiveLatestTab(tab);
-            setLatestPage(1);
-          }}
-        />
-        <Pagination 
-          currentPage={latestPage} 
-          totalPages={latestTotalPages > 4 ? 4 : latestTotalPages} 
-          onPageChange={(p) => {
-            setLatestPage(p);
-            scrollToSection("latest-updates");
-          }} 
-        />
-      </div>
-
       {/* Popular This Season */}
       <div id="popular-season">
-        <AnimeRow title="POPULAR THIS SEASON" data={popularThisSeason} isLoading={loadingSeason} limit={24} />
+        <AnimeRow
+          title="POPULAR THIS SEASON"
+          data={popularThisSeason}
+          isLoading={loadingSeason}
+          limit={cardsPerPage}
+          tabs={["All", "Sub", "Dub", "China"]}
+          activeTab={activeSeasonTab}
+          onTabChange={(tab) => {
+            setActiveSeasonTab(tab);
+            setSeasonPage(1);
+          }}
+        />
         <Pagination 
           currentPage={seasonPage} 
           totalPages={seasonInfo.lastPage > 4 ? 4 : seasonInfo.lastPage} 
