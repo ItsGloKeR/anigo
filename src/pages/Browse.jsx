@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getBrowseAnime, getBrowseAnimeMAL, checkDubAvailability } from "../services/api";
+import { getBrowseAnime, getBrowseAnimeMAL, checkDubAvailability, getRecentDubs } from "../services/api";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
@@ -86,7 +86,7 @@ export default function Browse() {
     const isMAL = filters.include.includes("Avant Garde");
     const vars = {
       page: filters.page,
-      perPage: 50,
+      perPage: 36,
       sort: [filters.sort],
     };
 
@@ -118,6 +118,56 @@ export default function Browse() {
     queryKey: ["browse", queryData],
     queryFn: async () => {
       const { vars, isMAL } = queryData;
+
+      // Use the same Dub source as homepage when Dub language is selected.
+      if (filters.language.includes("DUB")) {
+        const cardsPerPage = 36;
+        const startIndex = (filters.page - 1) * cardsPerPage;
+        const endIndex = startIndex + cardsPerPage;
+        const collected = [];
+        const seen = new Set();
+        let sourcePage = 1;
+        let sourceLastPage = 1;
+        let guard = 0;
+
+        // Build a stable paginated stream so each browse page can still render 36 cards.
+        while (collected.length < endIndex && guard < 20) {
+          const dubRes = await getRecentDubs(sourcePage, cardsPerPage);
+          const media = dubRes.media || [];
+
+          media.forEach((anime) => {
+            const key = String(
+              anime.id ?? `${anime.title?.romaji || anime.title?.english || "unknown"}-${anime.episodes || ""}`
+            );
+            if (seen.has(key)) return;
+            seen.add(key);
+            collected.push({ ...anime, dub: true });
+          });
+
+          sourceLastPage = dubRes.pageInfo?.lastPage || sourceLastPage;
+          if (sourcePage >= sourceLastPage) break;
+          sourcePage += 1;
+          guard += 1;
+        }
+
+        const pageMedia = collected.slice(startIndex, endIndex);
+        const hasNextDubPage = collected.length > endIndex || sourcePage < sourceLastPage;
+        const dubLastPage = hasNextDubPage
+          ? Math.max(filters.page + 1, Math.ceil(Math.max(collected.length, endIndex) / cardsPerPage))
+          : Math.max(1, Math.ceil(collected.length / cardsPerPage));
+
+        return {
+          media: pageMedia,
+          pageInfo: {
+            total: collected.length,
+            currentPage: filters.page,
+            lastPage: dubLastPage,
+            hasNextPage: hasNextDubPage,
+            perPage: cardsPerPage,
+          },
+        };
+      }
+
       let res = await (isMAL ? getBrowseAnimeMAL(vars) : getBrowseAnime(vars));
       
       // SMART-DECORATE WITH DUB INFO
@@ -776,12 +826,12 @@ export default function Browse() {
         {/* Results */}
         <div className="relative min-h-[500px]">
           {(isLoading || (isFetching && animeList.length === 0)) ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-5 gap-y-10 opacity-40">
-              {Array.from({ length: 48 }).map((_, i) => <SkeletonCard key={i} />)}
+            <div className="grid grid-cols-6 gap-x-5 gap-y-10 opacity-40">
+              {Array.from({ length: 36 }).map((_, i) => <SkeletonCard key={i} />)}
             </div>
           ) : animeList.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-x-5 gap-y-10">
-              {animeList.map(anime => <AnimeCard key={anime.id} anime={anime} />)}
+            <div className="grid grid-cols-6 gap-x-5 gap-y-10">
+              {animeList.map(anime => <AnimeCard key={anime.id} anime={anime} showDubBadge={false} />)}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-48 text-center">
