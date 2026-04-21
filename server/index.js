@@ -17,6 +17,7 @@ app.get("/api/check-dub/:anilistId", async (req, res) => {
 
   const cached = cache.get(anilistId);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    res.set("Cache-Control", "public, max-age=3600");
     return res.json(cached.data);
   }
 
@@ -29,6 +30,7 @@ app.get("/api/check-dub/:anilistId", async (req, res) => {
     } catch {
       const fallback = { anilistId, hasSub: true, hasDub: false, subCount: 0, dubCount: 0 };
       cache.set(anilistId, { data: fallback, timestamp: Date.now() });
+      res.set("Cache-Control", "public, max-age=3600");
       return res.json(fallback);
     }
 
@@ -41,6 +43,7 @@ app.get("/api/check-dub/:anilistId", async (req, res) => {
     };
 
     cache.set(anilistId, { data: result, timestamp: Date.now() });
+    res.set("Cache-Control", "public, max-age=3600");
     return res.json(result);
   } catch {
     return res.status(500).json({

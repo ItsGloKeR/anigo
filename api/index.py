@@ -148,14 +148,23 @@ def cached(prefix, ttl=CACHE_TTL):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def api_response(fn):
-    """Decorator that wraps route handlers with consistent error handling."""
+    """Decorator that wraps route handlers with consistent error handling and caching."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
         try:
             result = fn(*args, **kwargs)
             if isinstance(result, tuple):
-                return jsonify(result[0]), result[1]
-            return jsonify({"success": True, **result})
+                data, code = result
+                resp = jsonify({"success": True, **data}) if isinstance(data, dict) else jsonify(data)
+                # Add browser caching for successful GET requests (1 hour)
+                if request.method == "GET" and code == 200:
+                    resp.headers["Cache-Control"] = "public, max-age=3600"
+                return resp, code
+            
+            resp = jsonify({"success": True, **result})
+            if request.method == "GET":
+                resp.headers["Cache-Control"] = "public, max-age=3600"
+            return resp
         except requests.exceptions.RequestException as e:
             log.error("Network error in %s: %s", fn.__name__, e)
             return jsonify({"success": False, "error": f"Network error: {e}"}), 502

@@ -88,6 +88,9 @@ export default function Watch() {
   const [episodeSearchQuery, setEpisodeSearchQuery] = useState("");
   const [isEpisodeSearchOpen, setIsEpisodeSearchOpen] = useState(false);
 
+  // Performance: In-memory caches
+  const streamCache = useRef(new Map());
+
   // Modal states
   const [showSkipModal, setShowSkipModal] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
@@ -130,14 +133,10 @@ export default function Watch() {
   const [anikaiEpisodes, setAnikaiEpisodes] = useState([]);
   const [fetchError, setFetchError] = useState(null);
 
-  // Reset iframe loading state whenever the URL changes, but include a failsafe!
+  // Reset iframe loading state whenever the URL changes
   useEffect(() => {
     if (streamUrl) {
       setIframeLoaded(false);
-      const timer = setTimeout(() => {
-        setIframeLoaded(true); // Failsafe unlock after 2 seconds
-      }, 2000);
-      return () => clearTimeout(timer);
     } else {
       setIframeLoaded(true);
     }
@@ -203,7 +202,7 @@ export default function Watch() {
     setTimeout(() => setIsRecAnimating(false), 400);
   };
 
-  // Verification logic for SUB/DUB sources (Strict Validation)
+  // Verification logic for SUB/DUB sources (Strict Validation & Optimized)
   useEffect(() => {
     if (!activeEpisode || !anikaiEpisodes.length) return;
 
@@ -213,41 +212,47 @@ export default function Watch() {
       if (!ep) return;
 
       const token = ep.id;
-      try {
-        // Fetch both SUB and DUB sources in parallel for strict validation
-        const [subRes, dubRes] = await Promise.allSettled([
-          axios.get(`${PYTHON_API}/api/anikai/stream/${token}`, { params: { lang: 'sub' } }),
-          axios.get(`${PYTHON_API}/api/anikai/stream/${token}`, { params: { lang: 'dub' } })
-        ]);
 
-        if (cancelled) return;
-
-        // Strict Validation: Check Array.isArray(data.sources) and data.sources.length > 0
-        const subData = subRes.status === 'fulfilled' ? subRes.value.data : null;
-        const dubData = dubRes.status === 'fulfilled' ? dubRes.value.data : null;
-
-        const subAvailable = Array.isArray(subData?.sources) && subData.sources.length > 0;
-        const dubAvailable = Array.isArray(dubData?.sources) && dubData.sources.length > 0;
-
-        console.info(`[Source Verification] Ep ${activeEpisode}: SUB=${subAvailable}, DUB=${dubAvailable}`);
-
-        setHasSub(subAvailable);
-        setHasDub(dubAvailable);
-
-        // Fallback: If current playerLang is not available, switch to one that is
-        if (playerLang === "dub" && !dubAvailable && subAvailable) {
-          setPlayerLang("sub");
-        } else if (playerLang === "sub" && !subAvailable && dubAvailable) {
-          setPlayerLang("dub");
+      const checkLang = async (lang) => {
+        const cacheKey = `${token}-${lang}`;
+        // 1. Check cache first
+        if (streamCache.current.has(cacheKey)) {
+          const data = streamCache.current.get(cacheKey);
+          return Array.isArray(data?.sources) && data.sources.length > 0;
         }
-      } catch (err) {
-        console.error("[Source Verification] Failed:", err);
-      }
+        // 2. Fetch if not cached
+        try {
+          const resp = await axios.get(`${PYTHON_API}/api/anikai/stream/${token}`, { params: { lang } });
+          const data = resp.data;
+          if (data?.success && Array.isArray(data.sources) && data.sources.length > 0) {
+            streamCache.current.set(cacheKey, data);
+            return true;
+          }
+        } catch (err) {
+          console.warn("[Source Verification] Lang fetch failed:", lang, err);
+        }
+        return false;
+      };
+
+      // Parallel Fetch: Request both but update state as soon as each resolves
+      checkLang('sub').then(available => {
+        if (!cancelled) setHasSub(available);
+      }).catch(err => console.error("[Source Verification] SUB error:", err));
+
+      checkLang('dub').then(available => {
+        if (!cancelled) {
+          setHasDub(available);
+          // Auto-fallback: If current lang is DUB but not available, switch to SUB
+          if (playerLang === "dub" && !available) {
+            setPlayerLang("sub");
+          }
+        }
+      }).catch(err => console.error("[Source Verification] DUB error:", err));
     };
 
     verifySources();
     return () => { cancelled = true; };
-  }, [activeEpisode, anikaiEpisodes, PYTHON_API, playerLang]);
+  }, [activeEpisode, anikaiEpisodes, PYTHON_API, playerLang]); // Re-added playerLang for fallback safety
 
   // MAL Episode Titles (lightweight — only for episode names)
   const { data: malEpisodes } = useQuery({
@@ -708,9 +713,6 @@ export default function Watch() {
     setActiveEpisode(prev => {
       const next = prev + 1;
       if (next <= episodesList.length) {
-        // Clear current stream to show loader immediately for a seamless transition
-        setStreamUrl("");
-        setIframeLoaded(false);
         return next;
       }
       return prev;
@@ -761,12 +763,60 @@ export default function Watch() {
     return () => window.removeEventListener("message", handleMessage);
   }, [goNextEpisode]); // Removed autoNext from deps, using autoNextRef instead for stability
 
+  // ── Performance: Prefetch Next Episode ──
+  const prefetchNextEpisode = useCallback(async (nextEpNum) => {
+    if (!anikaiEpisodes.length || activeServer !== 1) return;
+
+    const nextEp = anikaiEpisodes.find(e => String(e.number) === String(nextEpNum));
+    if (!nextEp || streamCache.current.has(`${nextEp.id}-sub`)) return;
+
+    try {
+      // Use background fetch to avoid blocking main thread
+      axios.get(`${PYTHON_API}/api/anikai/stream/${nextEp.id}`, {
+        params: { lang: 'sub' }
+      }).then(resp => {
+        if (resp.data?.success && Array.isArray(resp.data.sources) && resp.data.sources.length > 0) {
+          streamCache.current.set(`${nextEp.id}-sub`, resp.data);
+          console.info(`[Prefetch] Cached Ep ${nextEpNum} (SUB)`);
+         }
+       }).catch(err => {
+         console.warn(`[Prefetch] Failed for Ep ${nextEpNum}:`, err);
+       });
+     } catch (err) {
+       console.error(`[Prefetch] Error for Ep ${nextEpNum}:`, err);
+     }
+   }, [anikaiEpisodes, activeServer, PYTHON_API]);
+
   // ── Stream Logic: Fetch iframe URL for the active episode ──
   useEffect(() => {
     let cancelled = false;
 
     const fetchStream = async () => {
       if (cancelled) return;
+
+      console.info(`[Player] Fetching stream: Episode ${activeEpisode}, Lang: ${playerLang}, Server: ${activeServer}`);
+
+      // --- OPTIMIZATION: Check Cache First BEFORE resetting state ---
+      if (activeServer === 1) {
+        const ep = anikaiEpisodes.find(e => String(e.number) === String(activeEpisode));
+        if (ep) {
+          const cacheKey = `${ep.id}-${playerLang}`;
+          if (streamCache.current.has(cacheKey)) {
+            const cachedData = streamCache.current.get(cacheKey);
+            const url = cachedData.iframe_url || (cachedData.sources?.[0]?.url);
+            if (url) {
+              const finalUrl = `${url}#lang=${playerLang}`;
+              setStreamUrl(finalUrl);
+              setStreamLoading(false);
+              setFetchError(null);
+              console.info(`[Player] ⚡ Instant Cache Hit for Ep ${activeEpisode}`);
+              // Trigger prefetch for next one anyway
+              if (activeEpisode < episodesList.length) prefetchNextEpisode(activeEpisode + 1);
+              return;
+            }
+          }
+        }
+      }
 
       setStreamLoading(true);
       setFetchError(null);
@@ -775,41 +825,60 @@ export default function Watch() {
 
       try {
         let url = "";
-        console.info(`[Player] Fetching stream: Episode ${activeEpisode}, Lang: ${playerLang}, Server: ${activeServer}`);
 
-        // --- SERVER 1: ANIKAI INTEGRATION ---
+        // --- SERVER 1: ANIKAI INTEGRATION (Optimized with Caching & Parallel Fetching) ---
         if (activeServer === 1) {
           const ep = anikaiEpisodes.find(e => String(e.number) === String(activeEpisode));
           if (!ep) {
-            console.error(`[Player] Episode ${activeEpisode} not found in Anikai list. (Length: ${anikaiEpisodes.length})`);
+            console.error(`[Player] Episode ${activeEpisode} not found in Anikai list.`);
             setFetchError(`Episode ${activeEpisode} not found on Anikai.`);
             setStreamLoading(false);
             return;
           }
-          console.log(`[Player] Requesting Stream: Server=${activeServer} Ep=${activeEpisode} Lang=${playerLang}`);
+
           const token = ep.id;
-          console.log(`[Player] Using Anikai Token: ${token} for Lang: ${playerLang}`);
-          const resp = await axios.get(`${PYTHON_API}/api/anikai/stream/${token}`, {
-            params: { lang: playerLang },
-          });
-          const data = resp.data;
-          if (!data.success) {
-            console.warn(`[Player] Anikai backend error: ${data.error}`);
-            setFetchError(data.error || "Anikai is currently unreachable.");
-            setStreamLoading(false);
-            return;
+          const cacheKey = `${token}-${playerLang}`;
+
+          // Re-check cache inside try just in case, though we checked above
+          if (streamCache.current.has(cacheKey)) {
+            const cachedData = streamCache.current.get(cacheKey);
+            url = cachedData.iframe_url || (cachedData.sources?.[0]?.url);
+          } else {
+            // 2. Parallel Fetch: Request both SUB and DUB to populate cache and speed up toggle
+            // But only await the requested language to show UI as fast as possible
+            const fetchLang = (lang) => axios.get(`${PYTHON_API}/api/anikai/stream/${token}`, {
+              params: { lang }
+            }).then(res => res.data).catch(() => null);
+
+            // Start both in parallel
+            const subPromise = fetchLang('sub');
+            const dubPromise = fetchLang('dub');
+
+            // Wait for requested language
+            const targetData = await (playerLang === 'sub' ? subPromise : dubPromise);
+
+            if (cancelled) return;
+
+            if (targetData?.success && Array.isArray(targetData.sources) && targetData.sources.length > 0) {
+              streamCache.current.set(cacheKey, targetData);
+              url = targetData.iframe_url || (targetData.sources?.[0]?.url);
+
+              // Background: Populate other language cache once primary is done
+              const otherData = await (playerLang === 'sub' ? dubPromise : subPromise);
+              if (otherData?.success && Array.isArray(otherData.sources) && otherData.sources.length > 0) {
+                streamCache.current.set(`${token}-${playerLang === 'sub' ? 'dub' : 'sub'}`, otherData);
+              }
+            } else {
+              setFetchError(`No ${playerLang.toUpperCase()} sources found for this episode.`);
+              setStreamLoading(false);
+              return;
+            }
           }
 
-          // Strict validation: Ensure sources exist before proceeding
-          if (!Array.isArray(data.sources) || data.sources.length === 0) {
-            console.error(`[Player] No ${playerLang} sources found in response:`, data);
-            setFetchError(`No ${playerLang.toUpperCase()} sources found for this episode.`);
-            setStreamLoading(false);
-            return;
+          // 3. Trigger Prefetch for Next Episode
+          if (activeEpisode < episodesList.length) {
+            prefetchNextEpisode(activeEpisode + 1);
           }
-
-          url = data.iframe_url || (data.sources?.[0]?.url);
-          console.info(`[Player] Resolved Anikai URL: ${url}`);
         }
 
         // --- SERVER 2: MEGAPLAY INTEGRATION (MAL) ---
@@ -873,7 +942,7 @@ export default function Watch() {
     fetchStream();
 
     return () => { cancelled = true; };
-  }, [id, anime?.id, anime?.idMal, activeEpisode, playerLang, activeServer, aniwatchEps, anikaiEpisodes, PYTHON_API, autoPlay]);
+  }, [id, anime?.id, anime?.idMal, activeEpisode, playerLang, activeServer, aniwatchEps, anikaiEpisodes, PYTHON_API, autoPlay, episodesList.length, prefetchNextEpisode]);
 
   const handleReport = () => {
     setReportSuccess(true);
@@ -962,16 +1031,11 @@ export default function Watch() {
                   <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-8 text-center">
                     {/* LOADER STATE */}
                     {(streamLoading || (streamUrl && !iframeLoaded)) ? (
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="w-14 h-14 border-[3px] border-red-600 border-t-transparent rounded-full animate-spin shadow-[0_0_20px_rgba(220,38,38,0.5)]"></div>
-                        <div className="space-y-1">
-                          <p className="text-white text-[12px] font-black tracking-[0.4em] uppercase">
-                            {streamLoading ? "Loading Source" : ""}
-                          </p>
-                          <p className="text-white/40 text-[9px] font-bold uppercase tracking-widest animate-pulse">
-                            Please wait a moment...
-                          </p>
-                        </div>
+                      <div className="flex flex-col items-center gap-4 transition-all duration-300">
+                        <div className="w-10 h-10 border-[3px] border-red-600 border-t-transparent rounded-full animate-spin shadow-[0_0_20px_rgba(220,38,38,0.3)]"></div>
+                        <p className="text-white/20 text-[8px] font-bold uppercase tracking-[0.3em] animate-pulse">
+                          Loading...
+                        </p>
                       </div>
                     ) : (
                       /* ERROR / NO STREAM STATE */
