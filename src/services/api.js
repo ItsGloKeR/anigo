@@ -500,14 +500,22 @@ export async function getAnimeDetails(id, isMal = false) {
   let finalId = id;
   let finalIsMal = isMal;
 
-  // BUG FIX: If ID is a HiAnime slug (non-numeric), resolve it to an AniList ID first
+  // BUG FIX: If ID is a slug (non-numeric), resolve it to an AniList ID first
   if (id && isNaN(id) && !isMal) {
     try {
       console.log(`[Watch] Resolving slug to AniList ID: ${id}`);
-      const aniwatchData = await getAniwatchDetails(id);
-      if (aniwatchData?.ani_id) {
-        finalId = aniwatchData.ani_id;
-        console.log(`[Watch] Resolved ${id} -> AniList ID: ${finalId}`);
+      // Try unified resolution first (handles Anikai and Gogoanime slugs)
+      const resolutionData = await resolveSlugToAnilist(id);
+      if (resolutionData?.anilist_id) {
+        finalId = resolutionData.anilist_id;
+        console.log(`[Watch] Resolved slug ${id} -> AniList ID: ${finalId}`);
+      } else {
+        // Fallback to Aniwatch (legacy)
+        const aniwatchData = await getAniwatchDetails(id);
+        if (aniwatchData?.ani_id) {
+          finalId = aniwatchData.ani_id;
+          console.log(`[Watch] Resolved Aniwatch ${id} -> AniList ID: ${finalId}`);
+        }
       }
     } catch (err) {
       console.error("[Watch] Mapping resolution failed:", err);
@@ -595,6 +603,20 @@ export async function getAniwatchId(keyword) {
     return [];
   }
 }
+
+export async function resolveSlugToAnilist(slug) {
+  try {
+    const { data } = await axios.get(`${PYTHON_API}/api/python/resolve/${slug}`);
+    return data;
+  } catch (err) {
+    console.error("Slug resolution failed:", err.message);
+    return null;
+  }
+}
+
+// ==========================================
+// ANIKAI SCRAPER (Search, Info, Stream)
+// ==========================================
 
 export async function getAnikaiDetails(keyword) {
   if (!keyword) return null;

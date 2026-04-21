@@ -1,9 +1,4 @@
-"""
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║   AniXO — Unified Anime Scraper API                                         ║
-║   Clean, structured, zero-AJAX architecture using centralized HTTP client   ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-"""
+
 
 import os
 import re
@@ -19,6 +14,7 @@ from bs4 import BeautifulSoup
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+import cloudscraper
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -69,7 +65,14 @@ class HttpClient:
 
     def __init__(self, retries=5, backoff=2, timeout=15):
         self.timeout = timeout
-        self.session = requests.Session()
+        self.session = cloudscraper.create_scraper(
+            delay=10, # Cloudflare bypass delay
+            browser={
+                'browser': 'chrome',
+                'platform': 'windows',
+                'desktop': True
+            }
+        )
         retry_strategy = Retry(
             total=retries,
             backoff_factor=backoff,
@@ -348,7 +351,7 @@ class AnikaiScraper:
 
         soup = BeautifulSoup(html, "html.parser")
         return [{
-            "number": int(ep.get("num") or 0),
+            "number": int(ep.get("num") or 0) if ep.get("num") is not None else 0,
             "id": ep.get("token", ""),
             "title": ep.select_one("span").get_text(strip=True) if ep.select_one("span") is not None else f"Episode {ep.get('num', 0)}",
         } for ep in soup.select(".eplist a")]
@@ -447,22 +450,18 @@ class AnikaiScraper:
 #  ANIWATCH SCRAPER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class AniwatchScraper:
-    """Aniwatch (aniwatchtv.to) scraper — search and episode IDs."""
-
-    BASE = "https://aniwatchtv.to"
-
-    @cached("aniwatch:recent", ttl=300)
+    @cached("anikai:recent", ttl=300)
     def get_recent_episodes(self, type="dub", limit=24, page=1):
-        """Fetch recently updated episodes with true pagination support."""
+        """Fetch recently updated episodes from Anikai."""
         results = []
         try:
-            url = f"{self.BASE}/recently-updated"
+            # Use /recent for the latest updates
+            url = f"{self.BASE}/recent"
             params = {"page": page}
             html = http.get_html(url, params=params)
             soup = BeautifulSoup(html, "html.parser")
             
-            # Extract pagination info
+            # Extract pagination
             last_page = 1
             pagination = soup.select_one(".pagination")
             if pagination:
@@ -476,149 +475,319 @@ class AniwatchScraper:
                                 last_page = p_num
                         except:
                             continue
-            
-            items = soup.select(".flw-item")
+
+            items = soup.select(".aitem")
             for item in items:
-                tick_dub = item.select_one(".tick-dub")
-                # If specifically dub is requested, filter it
-                if type == "dub" and not tick_dub:
+                # Check for dub badge
+                has_dub = item.select_one(".info .dub")
+                if type == "dub" and not has_dub:
                     continue
-                    
-                title_tag = item.select_one(".film-name a")
-                poster_img = item.select_one(".film-poster img")
                 
-                if not title_tag:
+                title_tag = item.select_one(".title")
+                poster_img = item.select_one(".poster img")
+                href_tag = item.select_one(".poster")
+                
+                if not title_tag or not href_tag:
                     continue
-                    
-                slug = str(title_tag.get("href", "")).replace("/watch/", "").lstrip("/")
+                
+                title = title_tag.get_text(strip=True)
+                slug = href_tag.get("href", "").replace("/watch/", "").lstrip("/")
                 
                 results.append({
                     "id": slug,
                     "title": {
-                        "romaji": title_tag.get_text(strip=True),
-                        "english": title_tag.get_text(strip=True)
+                        "romaji": title,
+                        "english": title
                     },
                     "coverImage": {
                         "large": poster_img.get("data-src") or poster_img.get("src") if poster_img else "",
                         "extraLarge": poster_img.get("data-src") or poster_img.get("src") if poster_img else ""
                     },
-                    "episodes": tick_dub.get_text(strip=True) if tick_dub else "?",
+                    "episodes": has_dub.get_text(strip=True) if has_dub else "?",
+                    "dub": True if type == "dub" else bool(has_dub),
                     "format": "TV",
                     "status": "RELEASING"
                 })
             
-            return {"results": results[:limit], "pageInfo": {"lastPage": last_page, "currentPage": page}}
+            return {"results": results[:limit], "pageInfo": {"lastPage": last_page, "currentPage": page, "hasNextPage": page < last_page}}
         except Exception as e:
-            log.error("Aniwatch: Page %s fetch failed: %s", page, e)
-            return {"results": [], "pageInfo": {"lastPage": 1, "currentPage": page}}
+            log.error("Anikai: Recent fetch failed: %s", e)
+            return {"results": [], "pageInfo": {"lastPage": 1, "currentPage": page, "hasNextPage": False}}
 
-    @cached("aniwatch:search", ttl=300)
-    def search(self, keyword):
-        """Search and return all potential matches."""
-        html = http.get_html(f"{self.BASE}/search", params={"keyword": keyword})
-        soup = BeautifulSoup(html, "html.parser")
+    def resolve_to_anilist(self, slug):
+        """Resolve an Anikai slug to an AniList ID."""
+        info = self.get_info(slug)
+        if not info or not info.get("title"):
+            return None
+            
+        title = info["title"]
+        log.info(f"Resolving Anikai slug '{slug}' (Title: {title}) to AniList...")
         
-        results = []
-        items = soup.select(".flw-item")
-        for item in items:
-            title_tag = item.select_one(".film-name a")
-            poster_tag = item.select_one(".film-poster-ahref")
-            
-            if not title_tag or not poster_tag:
-                continue
-                
-            results.append({
-                "title": title_tag.get_text(strip=True),
-                "data_id": poster_tag.get("data-id"),
-                "slug": poster_tag.get("href", "").replace("/", ""), # Alternative ID
-                "source": "aniwatch"
-            })
-            
-        return results
-
-    @cached("aniwatch:episodes", ttl=1800)
-    def get_episodes(self, aniwatch_id):
-        """Fetch episode list via the v2 API (no AJAX header needed — uses http client)."""
-        data = http.get_json(f"{self.BASE}/ajax/v2/episode/list/{aniwatch_id}")
-        html = data.get("html", "")
-
-        episodes = []
-        for m in re.finditer(r'data-number="(\d+)"[^>]*data-id="(\d+)"', html):
-            episodes.append({"number": int(m.group(1)), "id": m.group(2)})
-
-        if not episodes:
-            for m in re.finditer(r'data-id="(\d+)"[^>]*data-number="(\d+)"', html):
-                episodes.append({"number": int(m.group(2)), "id": m.group(1)})
-
-        return episodes
-
-    @cached("aniwatch:info", ttl=1800)
-    def get_info(self, aniwatch_id):
+        # Search AniList via our proxy
+        search_query = """
+        query ($search: String) {
+          Page(page: 1, perPage: 5) {
+            media(search: $search, type: ANIME) {
+              id
+              title { romaji english native }
+            }
+          }
+        }
+        """
         try:
-            # Handle both numeric IDs (anime-123) and pure slugs (renegade-immortal-18573)
-            slug = str(aniwatch_id)
-            url_path = f"anime-{slug}" if slug.isdigit() else slug
+            resp = http.post(
+                "https://graphql.anilist.co",
+                json={"query": search_query, "variables": {"search": title}},
+                headers={"Content-Type": "application/json"}
+            )
+            data = resp.json()
+            results = data.get("data", {}).get("Page", {}).get("media", [])
             
-            html = http.get_html(f"{self.BASE}/watch/{url_path}")
+            if not results:
+                return None
+                
+            # Best match logic
+            best_match = results[0] 
+            
+            titles = []
+            for r in results:
+                titles.extend([
+                    r["title"].get("romaji", ""),
+                    r["title"].get("english", ""),
+                    r["title"].get("native", "")
+                ])
+            
+            titles = [t for t in titles if t]
+            
+            matches = difflib.get_close_matches(title, titles, n=1, cutoff=0.6)
+            if matches:
+                matched_title = matches[0]
+                for r in results:
+                    if matched_title in [r["title"].get("romaji"), r["title"].get("english"), r["title"].get("native")]:
+                        best_match = r
+                        break
+            
+            log.info(f"Resolved Anikai '{slug}' -> AniList ID: {best_match['id']}")
+            return {"anilist_id": best_match["id"], "title": best_match["title"]}
+            
+        except Exception as e:
+            log.error(f"Anikai resolution failed: {e}")
+            return None
+
+class GogoanimeScraper:
+    """Gogoanime (gogoanimes.cv) scraper — search and episode IDs."""
+
+    BASE = "https://gogoanimes.cv"
+
+    @cached("gogoanime:recent", ttl=300)
+    def get_recent_episodes(self, type="dub", limit=24, page=1):
+        """Fetch recently updated episodes with true pagination support."""
+        results = []
+        try:
+            url = f"{self.BASE}/sub-category/dub-anime?page={page}" # Gogoanime uses /sub-category/dub-anime?page={page} for dubbed anime
+            html = http.get_html(url)
             soup = BeautifulSoup(html, "html.parser")
             
-            # 1. Description
-            desc_div = soup.select_one(".film-description .text")
-            description = desc_div.get_text(separator='<br/>').strip() if desc_div else ""
-
-            # 2. Detail Grid Info
-            info = {
-                "aniwatch_id": aniwatch_id,
-                "description": description,
-            }
-
-            # Map Aniwatch labels to internal keys
-            label_map = {
-                "Country:": "country",
-                "Premiered:": "premiered",
-                "Date aired:": "aired",
-                "Broadcast:": "broadcast",
-                "Episodes:": "episodes",
-                "Duration:": "duration",
-                "Status:": "status",
-                "MAL Score:": "mal_score",
-                "Studios:": "studios",
-                "Producers:": "producers",
-                "Genres:": "genres",
-                "Rating:": "rating"
-            }
-
-            # Scrape all detail items
-            items = soup.select(".anisc-info .item")
+            # Extract pagination info (Gogoanime doesn't have explicit last page on homepage)
+            # We'll assume hasNextPage based on whether items are found
+            
+            items = soup.select("div.last_episodes ul.items li")
             for item in items:
-                head = item.select_one(".item-head")
-                if not head:
-                    continue
-                label = head.get_text(strip=True)
+                title_tag = item.select_one("p.name a")
+                poster_img = item.select_one("div.img a img")
                 
-                # Extract value (handling cases with multiple links or direct text)
-                name_tag = item.select_one(".name")
-                if name_tag:
-                    # If it's a list (like Studios/Producers/Genres), collect them
-                    names = [a.get_text(strip=True) for a in item.select("a.name")]
-                    if not names:
-                        names = [name_tag.get_text(strip=True)]
-                    # For genres, store as list; for others, join as string
-                    if label == "Genres:":
-                        info["genres"] = names
-                    else:
-                        value = ", ".join(names)
-                        if label in label_map:
-                            info[label_map[label]] = value
-                else:
-                    # Direct text after head
-                    value = item.get_text(strip=True).replace(label, "").strip()
-                    if label in label_map:
-                        info[label_map[label]] = value
+                if not title_tag:
+                    continue
+                
+                title_text = title_tag.get_text(strip=True)
+                
+                href = title_tag.get("href", "").rstrip("/")
+                slug = href.split("/")[-1]
+                
+                results.append({
+                    "id": slug,
+                    "title": {
+                        "romaji": title_text,
+                        "english": title_text
+                    },
+                    "coverImage": {
+                        "large": poster_img.get("src") if poster_img else "",
+                        "extraLarge": poster_img.get("src") if poster_img else ""
+                    },
+                    "episodes": item.select_one("p.reaslead").get_text(strip=True).replace("Episode: ", "") if item.select_one("p.reaslead") else "?",
+                    "format": "TV", # Default to TV
+                    "status": "RELEASING" # Default to RELEASING
+                })
+            
+            return {"results": results[:limit], "pageInfo": {"lastPage": page + 1, "currentPage": page, "hasNextPage": len(results) == limit}}
+        except Exception as e:
+            log.error("Gogoanime: Page %s fetch failed: %s", page, e)
+            return {"results": [], "pageInfo": {"lastPage": page, "currentPage": page, "hasNextPage": False}}
 
+    @cached("gogoanime:search", ttl=300)
+    def search(self, keyword):
+        """Search and return all potential matches."""
+        try:
+            # Gogoanime search usually uses ?s=keyword
+            html = http.get_html(f"{self.BASE}/", params={"s": keyword})
+            soup = BeautifulSoup(html, "html.parser")
+            
+            results = []
+            # Based on the HTML we saw, search results might be in nav.menu_series or similar
+            # Let's try a more general selector
+            items = soup.select(".last_episodes ul.items li") or soup.select("nav.menu_series ul li")
+            
+            for item in items:
+                title_tag = item.select_one("p.name a") or item.select_one("a[title]")
+                if not title_tag:
+                    continue
+                
+                title = title_tag.get_text(strip=True)
+                href = title_tag.get("href", "")
+                # Extract slug from URL: https://gogoanimes.cv/anime/slug/ or https://gogoanimes.cv/slug/
+                slug = href.rstrip("/").split("/")[-1]
+                if "-episode-" in slug:
+                    slug = slug.split("-episode-")[0]
+                
+                results.append({
+                    "title": title,
+                    "slug": slug,
+                    "source": "gogoanime"
+                })
+            
+            return results
+        except Exception as e:
+            log.error("Gogoanime search failed: %s", e)
+            return []
+
+    @cached("gogoanime:episodes", ttl=1800)
+    def get_episodes(self, gogoanime_id):
+        """Extract episode list from Gogoanime page."""
+        try:
+            # Gogoanime usually lists episodes in a specific format or via AJAX
+            # For simplicity, if we can't find a list, we'll return an empty one
+            # and let the frontend fallback to AniList episode counts.
+            url = f"{self.BASE}/anime/{gogoanime_id}/"
+            html = http.get_html(url)
+            soup = BeautifulSoup(html, "html.parser")
+            
+            # Gogoanime often uses an 'ep_start' and 'ep_end' pattern in their JS or HTML
+            # Let's try to find the total number of episodes
+            ep_list = []
+            
+            # Pattern 1: div.anime_video_body_ul ul li
+            items = soup.select(".anime_video_body_ul ul li")
+            for item in items:
+                link = item.select_one("a")
+                if link:
+                    title = link.get_text(strip=True)
+                    ep_num_match = re.search(r'Episode (\d+)', title)
+                    if ep_num_match:
+                        ep_list.append({
+                            "number": int(ep_num_match.group(1)),
+                            "id": link.get("href", "").rstrip("/").split("/")[-1]
+                        })
+            
+            return sorted(ep_list, key=lambda x: x["number"])
+        except Exception as e:
+            log.error(f"Gogoanime get_episodes Error: {e}")
+            return []
+
+    @cached("gogoanime:info", ttl=1800)
+    def get_info(self, slug):
+        log.info(f"Gogoanime: Fetching info for slug: {slug}")
+        try:
+            # Try to get info page
+            url = f"{self.BASE}/anime/{slug}/"
+            log.info(f"Gogoanime: Trying URL: {url}")
+            try:
+                html = http.get_html(url)
+            except Exception as e:
+                url = f"{self.BASE}/{slug}/"
+                log.info(f"Gogoanime: Primary URL failed, trying: {url}")
+                html = http.get_html(url)
+                
+            soup = BeautifulSoup(html, "html.parser")
+            
+            title_tag = soup.select_one("h1") or soup.select_one(".anime_info_body_bg h1")
+            title = title_tag.get_text(strip=True) if title_tag else slug
+            log.info(f"Gogoanime: Found title: {title}")
+            
+            # Clean title (remove (Dub), (2025), etc.)
+            clean_title = re.sub(r'\(Dub\)|\(\d{4}\)', '', title).strip()
+            
+            info = {
+                "title": title,
+                "clean_title": clean_title,
+                "slug": slug,
+                "description": "",
+            }
+            
             return info
         except Exception as e:
-            log.error(f"Aniwatch get_info Error: {e}")
+            log.error(f"Gogoanime get_info Error: {e}")
+            return None
+
+    def resolve_to_anilist(self, slug):
+        """Resolve a Gogoanime slug to an AniList ID."""
+        info = self.get_info(slug)
+        if not info or not info.get("clean_title"):
+            return None
+            
+        title = info["clean_title"]
+        log.info(f"Resolving Gogoanime slug '{slug}' (Title: {title}) to AniList...")
+        
+        # Search AniList via our proxy
+        search_query = """
+        query ($search: String) {
+          Page(page: 1, perPage: 5) {
+            media(search: $search, type: ANIME) {
+              id
+              title { romaji english native }
+            }
+          }
+        }
+        """
+        try:
+            resp = http.post(
+                "https://graphql.anilist.co",
+                json={"query": search_query, "variables": {"search": title}},
+                headers={"Content-Type": "application/json"}
+            )
+            data = resp.json()
+            results = data.get("data", {}).get("Page", {}).get("media", [])
+            
+            if not results:
+                return None
+                
+            # Best match logic
+            best_match = results[0] # Default to first result
+            
+            # Try to find a better match using difflib
+            titles = []
+            for r in results:
+                titles.extend([
+                    r["title"].get("romaji", ""),
+                    r["title"].get("english", ""),
+                    r["title"].get("native", "")
+                ])
+            
+            # Filter empty titles
+            titles = [t for t in titles if t]
+            
+            matches = difflib.get_close_matches(title, titles, n=1, cutoff=0.6)
+            if matches:
+                matched_title = matches[0]
+                for r in results:
+                    if matched_title in [r["title"].get("romaji"), r["title"].get("english"), r["title"].get("native")]:
+                        best_match = r
+                        break
+            
+            log.info(f"Resolved '{slug}' -> AniList ID: {best_match['id']}")
+            return {"anilist_id": best_match["id"], "title": best_match["title"]}
+            
+        except Exception as e:
+            log.error(f"Resolution failed: {e}")
             return None
 
 class KitsuScraper:
@@ -687,7 +856,7 @@ class KitsuScraper:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 anikai = AnikaiScraper()
-aniwatch = AniwatchScraper()
+gogoanime = GogoanimeScraper()
 kitsu = KitsuScraper()
 
 
@@ -703,7 +872,7 @@ def index():
         "api": "Anigo Unified Scraper API",
         "status": "online",
         "version": "3.0.1",
-        "engines": ["anikai", "aniwatch"],
+        "engines": ["anikai", "gogoanime"],
         "endpoints": {
             "/api/anikai/search?keyword=": "Search Anikai",
             "/api/anikai/info/<slug>": "Anikai info",
@@ -827,12 +996,28 @@ def api_aniwatch_info(aniwatch_id):
     return {"error": "Not found"}, 404
 
 
+@app.route("/api/python/resolve/<slug>", methods=["GET"])
+@api_response
+def api_python_resolve_slug(slug):
+    print(f"DEBUG: Resolving slug: {slug}")
+    # Try anikai first since we are using it for recent dubs now
+    result = anikai.resolve_to_anilist(slug)
+    if not result:
+        result = gogoanime.resolve_to_anilist(slug)
+    
+    print(f"DEBUG: Result: {result}")
+    if result:
+        return result
+    return {"error": "Could not resolve slug"}, 404
+
+
 @app.route("/api/python/recent-dub", methods=["GET"])
 @api_response
 def api_python_recent_dub():
     limit = request.args.get("limit", 24, type=int)
     page = request.args.get("page", 1, type=int)
-    data = aniwatch.get_recent_episodes(type="dub", limit=limit, page=page)
+    # Use anikai for dubbed episodes
+    data = anikai.get_recent_episodes(type="dub", limit=limit, page=page)
     return {
         "media": data["results"],
         "pageInfo": data["pageInfo"]
@@ -929,6 +1114,6 @@ if __name__ == "__main__":
     """
     log.info(banner)
     log.info("HttpClient ready — 2 engines loaded")
-    log.info("Engines: Anikai · Aniwatch")
+    log.info("Engines: Anikai · Gogoanime")
     log.info("Server starting on port 5000...")
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -128,11 +128,13 @@ export default function Browse() {
         const seen = new Set();
         let sourcePage = 1;
         let guard = 0;
+        let sourceHasNextPage = false;
 
         // Build a stable paginated stream so each browse page can still render 36 cards.
         while (collected.length < endIndex && guard < 20) {
           const dubRes = await getRecentDubs(sourcePage, cardsPerPage);
           const media = dubRes.media || [];
+          sourceHasNextPage = Boolean(dubRes.pageInfo?.hasNextPage);
 
           media.forEach((anime) => {
             const key = String(
@@ -143,13 +145,13 @@ export default function Browse() {
             collected.push({ ...anime, dub: true });
           });
 
-          if (!dubRes.pageInfo?.hasNextPage) break;
+          if (!sourceHasNextPage) break;
           sourcePage += 1;
           guard += 1;
         }
 
         const pageMedia = collected.slice(startIndex, endIndex);
-        const hasNextDubPage = collected.length > endIndex || (sourcePage > 1 && guard < 20);
+        const hasNextDubPage = collected.length > endIndex || sourceHasNextPage;
         const dubLastPage = hasNextDubPage ? filters.page + 1 : filters.page;
 
         return {
@@ -197,15 +199,22 @@ export default function Browse() {
 
   const animeList = useMemo(() => {
     const rawList = result.media || [];
+    const isDubMode = filters.language.includes("DUB");
+
     return rawList.filter(anime => {
       const allLabels = [...(anime.genres || []), ...(anime.tags || []).map(t => t.name)];
-      if (filters.exclude.some(ex => allLabels.includes(GENRE_MAP[ex] || ex))) return false;
-      if (filters.include.length > 0) {
-        if (!filters.include.some(inc => allLabels.includes(GENRE_MAP[inc] || inc))) return false;
-      }
-      if (filters.country.length > 0) {
-        const origin = anime.countryOfOrigin || "";
-        if (!filters.country.includes(origin)) return false;
+
+      // Dub feed data comes from a different source and often lacks AniList metadata
+      // like genres/tags/country. Skip those metadata filters in Dub mode.
+      if (!isDubMode) {
+        if (filters.exclude.some(ex => allLabels.includes(GENRE_MAP[ex] || ex))) return false;
+        if (filters.include.length > 0) {
+          if (!filters.include.some(inc => allLabels.includes(GENRE_MAP[inc] || inc))) return false;
+        }
+        if (filters.country.length > 0) {
+          const origin = anime.countryOfOrigin || "";
+          if (!filters.country.includes(origin)) return false;
+        }
       }
       if (filters.language.includes('DUB')) {
         if (!anime.dub) return false;
@@ -831,7 +840,7 @@ export default function Browse() {
             </div>
           ) : animeList.length > 0 ? (
             <div className="grid grid-cols-6 gap-x-5 gap-y-10">
-              {animeList.map(anime => <AnimeCard key={anime.id} anime={anime} showDubBadge={false} />)}
+              {animeList.map(anime => <AnimeCard key={anime.id} anime={anime} showDubBadge={true} />)}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-48 text-center">
