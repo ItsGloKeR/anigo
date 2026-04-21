@@ -723,6 +723,8 @@ export default function Watch() {
     setActiveEpisode(prev => Math.max(1, prev - 1));
   }, []);
 
+  const iframeRef = useRef(null);
+
   // ── Megaplay Player Events Listener ──
   useEffect(() => {
     const handleMessage = (event) => {
@@ -739,7 +741,7 @@ export default function Watch() {
 
       if (!data) return;
 
-      // Deep event checking for various player implementations
+      // 1. Handle Episode Completion (AutoNext)
       const isComplete =
         data.event === "complete" ||
         data.event === "onComplete" ||
@@ -754,14 +756,39 @@ export default function Watch() {
 
       if (isComplete) {
         if (autoNextRef.current) {
+          console.info("[Player] Video ended, moving to next episode...");
           goNextEpisode();
+        }
+      }
+
+      // 2. Handle AutoSkip Logic (Intro/Outro)
+      if (autoSkip && skipTimes[activeEpisode]) {
+        // Handle various time update formats from different players
+        const currentTime = data.currentTime || data.time || data.seconds || data.progress?.seconds;
+        const { start, end } = skipTimes[activeEpisode];
+
+        if (typeof currentTime === 'number' && currentTime >= Number(start) && currentTime < Number(end)) {
+          console.info(`[AutoSkip] Skipping intro: ${start}s -> ${end}s`);
+          // Send seek message to iframe
+          if (iframeRef.current?.contentWindow) {
+            // Megaplay / Consumet Standard
+            iframeRef.current.contentWindow.postMessage(
+              JSON.stringify({ event: "command", func: "seekTo", args: [Number(end)] }),
+              "*"
+            );
+            // Alternative Standard
+            iframeRef.current.contentWindow.postMessage(
+              { type: "seek", time: Number(end) },
+              "*"
+            );
+          }
         }
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [goNextEpisode]); // Removed autoNext from deps, using autoNextRef instead for stability
+  }, [goNextEpisode, autoSkip, skipTimes, activeEpisode]); // Removed autoNext from deps, using autoNextRef instead for stability
 
   // ── Performance: Prefetch Next Episode ──
   const prefetchNextEpisode = useCallback(async (nextEpNum) => {
@@ -944,8 +971,11 @@ export default function Watch() {
     return () => { cancelled = true; };
   }, [id, anime?.id, anime?.idMal, activeEpisode, playerLang, activeServer, aniwatchEps, anikaiEpisodes, PYTHON_API, autoPlay, episodesList.length, prefetchNextEpisode]);
 
-  const handleReport = () => {
+  const handleReport = async () => {
+    // Simulate API call for reporting
+    console.info(`[Report] Reporting issue for Anime ID: ${id}, Episode: ${activeEpisode}`);
     setReportSuccess(true);
+    // Real-world: await axios.post(`${PYTHON_API}/api/report`, { id, episode: activeEpisode });
     setTimeout(() => setReportSuccess(false), 3000);
   };
 
@@ -987,8 +1017,8 @@ export default function Watch() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] font-sans pb-20 text-white relative">
-      <Navbar />
+    <div className={`min-h-screen bg-[#0a0a0a] font-sans pb-20 text-white relative ${isFocusMode ? "overflow-hidden" : ""}`}>
+      {!isFocusMode && <Navbar />}
 
       {/* Focus Mode Curtain */}
       {isFocusMode && (
@@ -1057,6 +1087,7 @@ export default function Watch() {
               {/* Player Iframe */}
               {streamUrl && (
                 <iframe
+                  ref={iframeRef}
                   key={`${activeServer}-${activeEpisode}-${playerLang}-${streamUrl}`}
                   src={streamUrl}
                   onLoad={() => setIframeLoaded(true)}
