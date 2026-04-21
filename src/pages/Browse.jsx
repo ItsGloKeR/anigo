@@ -470,14 +470,14 @@ export default function Browse() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="relative grid grid-cols-2 gap-2">
                 {[
                   { label: "Types", key: "types", options: [{ label: "TV", value: "TV" }, { label: "Movie", value: "MOVIE" }, { label: "OVA", value: "OVA" }, { label: "ONA", value: "ONA" }, { label: "Special", value: "SPECIAL" }] },
                   { label: "Genres", key: "genre", options: ALL_GENRES },
                   { label: "Status", key: "status", options: [{ label: "Any", value: "" }, { label: "Releasing", value: "RELEASING" }, { label: "Finished", value: "FINISHED" }, { label: "Upcoming", value: "NOT_YET_RELEASED" }] },
                   { label: "Advanced", key: "advanced", active: filters.year || filters.season || filters.rating }
                 ].map(dd => (
-                  <div key={dd.key} className="relative group">
+                  <div key={dd.key} className={`${dd.key === "genre" ? "static group" : "relative group"}`}>
                     <button
                       onClick={() => setOpenDropdown(openDropdown === dd.key ? null : dd.key)}
                       className={`w-full h-10 flex items-center justify-between px-4 rounded-lg border border-white/10 bg-black/20 transition-all hover:bg-white/[0.03] ${openDropdown === dd.key ? "bg-white/[0.06]" : ""}`}
@@ -495,12 +495,12 @@ export default function Browse() {
                       <>
                         <div className="fixed inset-0 z-[90]" onClick={() => setOpenDropdown(null)} />
                         <div
-                          className={`absolute top-[calc(100%+8px)] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-[100] ${
+                          className={`absolute top-full mt-2 bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-[100] ${
                             dd.key === "genre"
-                              ? "left-0 right-0 w-auto"
+                              ? "left-0 right-0 w-auto max-h-[70vh] overflow-y-auto"
                               : dd.key === "advanced"
-                              ? "right-0"
-                              : "w-40 left-0"
+                              ? "right-0 w-80"
+                              : "left-0 w-40"
                           }`}
                         >
                           {(dd.key === "types" || dd.key === "status") && (
