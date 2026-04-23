@@ -9,7 +9,6 @@ import { useUserList } from "../context/UserListContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
-import SkeletonCard from "../components/common/SkeletonCard";
 import NextEpisodeBanner from "../components/common/NextEpisodeBanner";
 import {
   ChevronLeft,
@@ -242,8 +241,8 @@ export default function Watch() {
         }
         // 2. Fetch if not cached
         try {
-          const resp = await axios.get(`${PYTHON_API}/api/anikai/stream/${token}`, { 
-            params: { lang, strict: true } 
+          const resp = await axios.get(`${PYTHON_API}/api/anikai/stream/${token}`, {
+            params: { lang, strict: true }
           });
           const data = resp.data;
           // STRICT VALIDATION: sources must be array and length > 0, and language must match
@@ -837,14 +836,14 @@ export default function Watch() {
         if (resp.data?.success && Array.isArray(resp.data.sources) && resp.data.sources.length > 0) {
           streamCache.current.set(`${nextEp.id}-sub`, resp.data);
           console.info(`[Prefetch] Cached Ep ${nextEpNum} (SUB)`);
-         }
-       }).catch(err => {
-         console.warn(`[Prefetch] Failed for Ep ${nextEpNum}:`, err);
-       });
-     } catch (err) {
-       console.error(`[Prefetch] Error for Ep ${nextEpNum}:`, err);
-     }
-   }, [anikaiEpisodes, activeServer, PYTHON_API]);
+        }
+      }).catch(err => {
+        console.warn(`[Prefetch] Failed for Ep ${nextEpNum}:`, err);
+      });
+    } catch (err) {
+      console.error(`[Prefetch] Error for Ep ${nextEpNum}:`, err);
+    }
+  }, [anikaiEpisodes, activeServer, PYTHON_API]);
 
   // ── Stream Logic: Fetch iframe URL for the active episode ──
   useEffect(() => {
@@ -1290,29 +1289,25 @@ export default function Watch() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-4">
-                  {/* Language Selector */}
                   <div className="flex bg-[#161616] p-1 rounded-sm border border-white/5">
-                    {hasSub && (
-                      <button
-                        onClick={() => setPlayerLang("sub")}
-                        className={`flex items-center gap-2 px-5 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all ${playerLang === "sub" ? "bg-red-600 text-white shadow-lg" : "text-white/40 hover:text-white"
-                          }`}
-                      >
-                        <MessageSquare size={12} fill="currentColor" className="opacity-50" />
-                        Sub
-                      </button>
-                    )}
-                    {hasDub && (
-                      <button
-                        onClick={() => setPlayerLang("dub")}
-                        className={`flex items-center gap-2 px-5 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all ${playerLang === "dub" ? "bg-red-600 text-white shadow-lg" : "text-white/40 hover:text-white"
-                          }`}
-                      >
-                        <Mic size={12} fill="currentColor" className="opacity-50" />
-                        Dub
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setPlayerLang("sub")}
+                      className={`flex items-center gap-2 px-5 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all ${playerLang === "sub" ? "bg-red-600 text-white shadow-lg" : "text-white/40 hover:text-white"
+                        }`}
+                    >
+                      <MessageSquare size={12} fill="currentColor" className="opacity-50" />
+                      Sub
+                    </button>
+                    <button
+                      onClick={() => setPlayerLang("dub")}
+                      className={`flex items-center gap-2 px-5 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all ${playerLang === "dub" ? "bg-red-600 text-white shadow-lg" : "text-white/40 hover:text-white"
+                        }`}
+                    >
+                      <Mic size={12} fill="currentColor" className="opacity-50" />
+                      Dub
+                    </button>
                   </div>
+
 
                   {/* Servers List */}
                   <div className="flex items-center gap-2 overflow-x-auto no-scrollbar max-w-[300px]">
@@ -1664,12 +1659,10 @@ export default function Watch() {
                       <span className="px-1.5 h-full bg-[#e3e3e3] text-black flex items-center">CC</span>
                       <span className="px-2 h-full flex items-center">{anime.episodes || "?"}</span>
                     </div>
-                    {hasDub && (
-                      <div className="flex items-center bg-white/10 rounded-[2px] overflow-hidden tracking-wider h-6">
-                        <span className="px-1.5 h-full bg-[#f4a1ce] text-black flex items-center justify-center"><Mic size={11} fill="currentColor" /></span>
-                        <span className="px-2 h-full flex items-center">{anime.episodes || "?"}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center bg-white/10 rounded-[2px] overflow-hidden tracking-wider h-6">
+                      <span className="px-1.5 h-full bg-[#f4a1ce] text-black flex items-center justify-center"><Mic size={11} fill="currentColor" /></span>
+                      <span className="px-2 h-full flex items-center">{anime.episodes || "?"}</span>
+                    </div>
                     <span className="bg-[#b0b0b0] text-[#111] h-6 flex items-center px-2 rounded-[2px] font-medium">{resolvedInfo.rating || "?"}</span>
                     {anime.isAdult && <span className="bg-[#e3e3e3] text-black h-6 flex items-center px-2 rounded-[2px] uppercase">R</span>}
                     <span className="bg-white/10 text-white/80 h-6 flex items-center px-2 rounded-[2px] uppercase">{anime.format || "TV"}</span>
