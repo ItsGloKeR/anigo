@@ -10,6 +10,7 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
 import NextEpisodeBanner from "../components/common/NextEpisodeBanner";
+import VideoPlayer from "../components/common/VideoPlayer";
 import {
   ChevronLeft,
   ChevronRight,
@@ -136,6 +137,7 @@ export default function Watch() {
   // API Endpoints
   const PYTHON_API = import.meta.env.PROD ? "" : "http://localhost:5000";
   const [streamUrl, setStreamUrl] = useState("");
+  const [streamData, setStreamData] = useState(null);
   const [streamLoading, setStreamLoading] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
 
@@ -237,7 +239,8 @@ export default function Watch() {
         // 1. Check cache first
         if (streamCache.current.has(cacheKey)) {
           const data = streamCache.current.get(cacheKey);
-          return Array.isArray(data?.sources) && data.sources.length > 0 && data.lang === lang;
+          const hasContent = (Array.isArray(data?.sources) && data.sources.length > 0) || data?.iframe_url;
+          return hasContent && data?.lang === lang;
         }
         // 2. Fetch if not cached
         try {
@@ -245,8 +248,9 @@ export default function Watch() {
             params: { lang, strict: true }
           });
           const data = resp.data;
-          // STRICT VALIDATION: sources must be array and length > 0, and language must match
-          const isValid = data?.success && Array.isArray(data.sources) && data.sources.length > 0 && data.lang === lang;
+          // RELAXED VALIDATION: Must have either sources array OR an iframe_url
+          const hasContent = (Array.isArray(data.sources) && data.sources.length > 0) || data.iframe_url;
+          const isValid = data?.success && hasContent && data.lang === lang;
           if (isValid) {
             streamCache.current.set(cacheKey, data);
             return true;
@@ -863,12 +867,13 @@ export default function Watch() {
             const cachedData = streamCache.current.get(cacheKey);
             const url = cachedData.iframe_url || (cachedData.sources?.[0]?.url);
             // Verify cache matches requested language
-            if (url && cachedData.lang === playerLang) {
-              const finalUrl = `${url}#lang=${playerLang}`;
-              setStreamUrl(finalUrl);
-              setStreamLoading(false);
-              setFetchError(null);
-              console.info(`[Player] ⚡ Instant Cache Hit for Ep ${activeEpisode}`);
+              if (url && cachedData.lang === playerLang) {
+                const finalUrl = `${url}#lang=${playerLang}`;
+                setStreamData(cachedData);
+                setStreamUrl(finalUrl);
+                setStreamLoading(false);
+                setFetchError(null);
+                console.info(`[Player] ⚡ Instant Cache Hit for Ep ${activeEpisode}`);
               // Trigger prefetch for next one anyway
               if (activeEpisode < episodesList.length) prefetchNextEpisode(activeEpisode + 1);
               return;
@@ -880,6 +885,7 @@ export default function Watch() {
       setStreamLoading(true);
       setFetchError(null);
       setStreamUrl("");
+      setStreamData(null);
       setIframeLoaded(false);
 
       try {
@@ -918,13 +924,17 @@ export default function Watch() {
 
             if (cancelled) return;
 
-            if (targetData?.success && Array.isArray(targetData.sources) && targetData.sources.length > 0) {
+            const hasContent = (Array.isArray(targetData.sources) && targetData.sources.length > 0) || targetData.iframe_url;
+
+            if (targetData?.success && hasContent) {
               streamCache.current.set(cacheKey, targetData);
+              setStreamData(targetData);
               url = targetData.iframe_url || (targetData.sources?.[0]?.url);
 
               // Background: Populate other language cache once primary is done
               const otherData = await (playerLang === 'sub' ? dubPromise : subPromise);
-              if (otherData?.success && Array.isArray(otherData.sources) && otherData.sources.length > 0) {
+              const hasOtherContent = otherData?.success && ((Array.isArray(otherData.sources) && otherData.sources.length > 0) || otherData.iframe_url);
+              if (hasOtherContent) {
                 streamCache.current.set(`${token}-${playerLang === 'sub' ? 'dub' : 'sub'}`, otherData);
               }
             } else {
@@ -1104,11 +1114,23 @@ export default function Watch() {
                     ) : (
                       /* ERROR / NO STREAM STATE */
                       <div className="animate-in fade-in zoom-in-95 duration-300">
-                        {(!hasSub && !hasDub) && (
+                        {fetchError ? (
                           <div className="flex flex-col items-center gap-3">
                             <Frown size={48} className="text-white/20" />
-                            <p className="text-white/60 text-sm font-bold uppercase tracking-widest">No Sources Available</p>
-                            <p className="text-white/20 text-[10px] max-w-[200px]">This episode might not be available on this server yet.</p>
+                            <p className="text-white/60 text-sm font-bold uppercase tracking-widest">Playback Issue</p>
+                            <p className="text-white/20 text-[10px] max-w-[250px]">{fetchError}</p>
+                            <button 
+                              onClick={() => window.location.reload()}
+                              className="mt-2 px-4 py-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all"
+                            >
+                              Retry Page
+                            </button>
+                          </div>
+                        ) : (!streamLoading && !streamUrl) && (
+                          <div className="flex flex-col items-center gap-3">
+                            <Frown size={48} className="text-white/20" />
+                            <p className="text-white/60 text-sm font-bold uppercase tracking-widest">No Stream Found</p>
+                            <p className="text-white/20 text-[10px] max-w-[200px]">Try switching servers or language (Sub/Dub).</p>
                           </div>
                         )}
                       </div>
@@ -1118,18 +1140,26 @@ export default function Watch() {
                 </div>
               )}
 
-              {/* Player Iframe */}
+              {/* Player - Prefer Native Player if sources available, fallback to Iframe */}
               {streamUrl && (
-                <iframe
-                  ref={iframeRef}
-                  key={`${activeServer}-${activeEpisode}-${playerLang}-${streamUrl}`}
-                  src={streamUrl}
-                  onLoad={() => setIframeLoaded(true)}
-                  className={`w-full h-full border-0 transition-opacity duration-500 ${!iframeLoaded ? 'opacity-0' : 'opacity-100'}`}
-                  allowFullScreen
-                  scrolling="no"
-                  allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-                />
+                streamData?.sources && Array.isArray(streamData.sources) && streamData.sources.length > 0 ? (
+                  <VideoPlayer 
+                    src={streamData.sources[0].url} 
+                    poster={animeDetails?.coverImage?.extraLarge || animeDetails?.coverImage?.large}
+                    subtitles={streamData.subtitles || []}
+                  />
+                ) : (
+                  <iframe
+                    ref={iframeRef}
+                    key={`${activeServer}-${activeEpisode}-${playerLang}-${streamUrl}`}
+                    src={streamUrl}
+                    onLoad={() => setIframeLoaded(true)}
+                    className={`w-full h-full border-0 transition-opacity duration-500 ${!iframeLoaded ? 'opacity-0' : 'opacity-100'}`}
+                    allowFullScreen
+                    scrolling="no"
+                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+                  />
+                )
               )}
             </section>
 

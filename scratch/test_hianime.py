@@ -1,14 +1,12 @@
 import cloudscraper
-import json
 
-def test_anikai():
+def test_hianime():
     scraper = cloudscraper.create_scraper()
-    base = "https://anikai.to/ajax"
+    base = "https://hianime.to/ajax"
     try:
-        print("Testing Anikai Search...")
-        # We need to simulate the headers used in the app
+        print("Testing HiAnime Search...")
         headers = {
-            "Referer": "https://anikai.to/",
+            "Referer": "https://hianime.to/",
             "X-Requested-With": "XMLHttpRequest"
         }
         resp = scraper.get(f"{base}/anime/search?keyword=Naruto", headers=headers, timeout=10)
@@ -18,4 +16,4 @@ def test_anikai():
         print(f"Error: {e}")
 
 if __name__ == "__main__":
-    test_anikai()
+    test_hianime()

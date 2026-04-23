@@ -52,26 +52,30 @@ class HttpClient:
     """
 
     DEFAULT_HEADERS = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "max-age=0",
+        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        "Sec-Ch-Ua-Mobile": "?0",
+        "Sec-Ch-Ua-Platform": '"Windows"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1"
     }
 
     def __init__(self, retries=5, backoff=2, timeout=15):
         self.timeout = timeout
         self.session = cloudscraper.create_scraper(
-            delay=10, # Cloudflare bypass delay
+            delay=10,
             browser={
-                'browser': 'chrome',
-                'platform': 'windows',
-                'desktop': True
+                'custom': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             }
         )
         self.session.headers.update(self.DEFAULT_HEADERS)
-        log.info("HttpClient initialized — retries handled by cloudscraper")
+        log.info("HttpClient initialized with Stealth Mode headers")
 
     def get(self, url, params=None, headers=None, referer=None, timeout=None):
         """GET request with optional overrides."""
@@ -427,7 +431,9 @@ class AnikaiScraper:
             embed_base = (embed_url.rsplit("/e/", 1)[0] if "/e/" in embed_url
                           else embed_url.replace("/embed-1/", "/").rsplit("/", 1)[0]).rstrip("/")
 
-            media_data = http.get_json(f"{embed_base}/media/{video_id}")
+            # Fix: Add Referer header to bypass potential blocks on media endpoint
+            headers = {"Referer": embed_url, "User-Agent": HttpClient.DEFAULT_HEADERS["User-Agent"]}
+            media_data = http.get_json(f"{embed_base}/media/{video_id}", headers=headers)
             encrypted_media = media_data.get("result", "")
 
             final = self._decrypt_mega(encrypted_media)
@@ -947,9 +953,16 @@ def api_anikai_stream(ep_token):
     if not servers:
         return {"error": "No servers found for this episode"}, 404
 
+    def is_lang_match(s_lang, target_lang):
+        s_lang = (s_lang or "sub").lower()
+        target_lang = target_lang.lower()
+        if target_lang == "sub":
+            return s_lang in ["sub", "softsub", "hardsub", "raw"]
+        return s_lang == target_lang
+
     # Filter by language if strict is requested
     if strict:
-        servers = [s for s in servers if (s.get("lang") or "sub").lower() == lang]
+        servers = [s for s in servers if is_lang_match(s.get("lang"), lang)]
         if not servers:
             return {"error": f"No {lang} sources found for this episode"}, 404
 
@@ -957,13 +970,15 @@ def api_anikai_stream(ep_token):
         name = server.get("name", "").lower()
         server_lang = (server.get("lang") or "sub").lower()
         
-        # Priority 1: Exact language match from the Anikai group data-id
-        is_lang_match = 100 if server_lang == lang else 0
+        # Priority 1: Language match
+        lang_score = 100 if is_lang_match(server_lang, lang) else 0
+        # Bonus for exact match
+        exact_match = 50 if server_lang == lang else 0
         
         # Priority 2: Quality/Speed preferred servers
         is_mega_like = 10 if ("mega" in name or "server 1" in name or "filemoon" in name) else 0
         
-        return (is_lang_match, is_mega_like)
+        return (lang_score + exact_match, is_mega_like)
 
     sorted_servers = sorted(servers, key=get_score, reverse=True)
 
