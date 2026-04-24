@@ -55,88 +55,98 @@ export default function Staff() {
     <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-red-600/30">
       <Navbar />
 
-      {/* Premium Glassy Header */}
-      <div className="relative h-[40vh] min-h-[400px] overflow-hidden pt-16">
-        <div className="absolute inset-0">
-          <img 
-            src={staff.image?.large} 
-            className="w-full h-full object-cover blur-3xl scale-125 opacity-20"
-            alt="background"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/50 to-transparent" />
-        </div>
+      {/* Hero Section — Mobile-first responsive (Matching Character.jsx) */}
+      <div className="relative min-h-[320px] sm:min-h-[400px] md:min-h-[450px] overflow-hidden">
+        {/* Blurred Background Image */}
+        <div 
+          className="absolute inset-0 bg-cover bg-center scale-110 blur-2xl opacity-20"
+          style={{ backgroundImage: `url(${staff.image?.large})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent" />
 
-        <div className="relative h-full max-w-[1400px] mx-auto px-6 flex items-end pb-12">
-          <div className="flex flex-col md:flex-row gap-8 md:items-center w-full">
-            <div className="relative shrink-0 group">
-              <div className="absolute -inset-1 bg-gradient-to-r from-red-600 to-red-900 rounded-[4px] blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+        <div className="relative max-w-[1400px] mx-auto px-4 md:px-8 h-full flex flex-col justify-end pt-20 pb-8 sm:pb-12">
+          {/* Back Button */}
+          <button 
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 text-white/40 hover:text-white transition-colors group mb-6"
+          >
+            <div className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center group-hover:border-white/30 group-hover:bg-white/5">
+              <ChevronLeft size={18} />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-widest">Return</span>
+          </button>
+
+          {/* Mobile: Stacked center layout | Desktop: Side-by-side */}
+          <div className="flex flex-col items-center text-center sm:flex-row sm:items-end sm:text-left gap-5 sm:gap-8">
+            {/* Staff Image */}
+            <div className="w-[140px] sm:w-[180px] md:w-[220px] shrink-0 rounded-lg overflow-hidden border border-white/10 shadow-2xl relative">
               <img 
                 src={staff.image?.large} 
-                className="relative w-48 h-64 md:w-56 md:h-72 object-cover rounded-[3px] border border-white/10 shadow-2xl"
-                alt={staff.name?.full}
+                alt={staff.name?.full} 
+                className="w-full aspect-[2/3] object-cover"
               />
+              <div className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-full shadow-lg">
+                <Heart size={14} fill="white" />
+              </div>
             </div>
 
-            <div className="flex-1 space-y-4">
-              <button 
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-white/40 hover:text-white transition-colors group"
-              >
-                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-red-600 transition-all">
-                  <ChevronLeft size={16} />
-                </div>
-                <span className="text-[12px] font-bold tracking-[0.2em] uppercase">Return</span>
-              </button>
-
-              <div className="space-y-1">
-                <h1 className="text-4xl md:text-6xl font-black tracking-tighter uppercase leading-none">
-                  {staff.name?.full}
-                </h1>
-                <p className="text-xl md:text-2xl font-bold text-white/30 uppercase tracking-tighter">
+            {/* Name and Basic Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-3">
+                <span className="px-2 py-0.5 bg-white/10 text-white/50 text-[9px] font-bold uppercase rounded tracking-widest">
+                  Voice Actor Profile
+                </span>
+                {staff.languageV2 && (
+                  <span className="px-2 py-0.5 bg-red-600/20 text-red-400 text-[9px] font-bold uppercase rounded tracking-widest">
+                    {staff.languageV2}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-2xl sm:text-4xl md:text-5xl font-black text-white leading-none tracking-tighter uppercase mb-1">
+                {staff.name?.full}
+              </h1>
+              {staff.name?.native && (
+                <p className="text-sm sm:text-lg font-bold text-white/30 mb-4 uppercase tracking-tighter">
                   {staff.name?.native}
                 </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                {staff.primaryOccupations?.map((occ, i) => (
-                  <span key={i} className="px-3 py-1 bg-white/5 border border-white/5 rounded-[4px] text-[10px] font-bold text-white/50 uppercase tracking-widest">
-                    {occ}
-                  </span>
-                ))}
-                <div className="flex items-center gap-2 px-3 py-1 bg-red-600/10 border border-red-600/20 rounded-[4px] text-[10px] font-bold text-red-500 uppercase tracking-widest">
-                  <Heart size={12} fill="currentColor" />
-                  {staff.favourites?.toLocaleString()} Favorites
-                </div>
+              )}
+              
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-5 gap-y-1 text-[11px] sm:text-[12px] font-bold uppercase tracking-wider text-white/40">
+                {staff.primaryOccupations?.[0] && <div><span className="text-white">{staff.primaryOccupations[0]}</span></div>}
+                <div>Favourites: <span className="text-white">{staff.favourites?.toLocaleString()}</span></div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <main className="max-w-[1400px] mx-auto px-6 py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-20">
+      <main className="max-w-[1400px] mx-auto px-4 md:px-8 py-8 sm:py-12">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-8 lg:gap-12">
           {/* Main Content Column */}
-          <div className="space-y-20">
+          <div className="space-y-10 lg:space-y-20">
             {/* Biography */}
             <section>
-              <div className="flex items-center gap-4 mb-10">
-                <div className="w-[3px] h-8 bg-red-600 rounded-full" />
-                <h2 className="text-3xl font-black text-white uppercase tracking-tight">Biography</h2>
+              <div className="flex items-center gap-3 mb-4 sm:mb-6">
+                <div className="w-[3px] h-5 bg-red-600 rounded-full" />
+                <h2 className="text-base sm:text-xl font-black text-white uppercase tracking-tight">Biography</h2>
               </div>
               <div 
-                className="prose prose-invert prose-p:text-white/60 prose-p:leading-relaxed prose-p:text-[16px] max-w-none font-medium text-justify selection:bg-red-600/30"
+                className="prose prose-invert max-w-none text-white/60 leading-relaxed text-[13px] sm:text-[15px]"
                 dangerouslySetInnerHTML={{ __html: staff.description || "No biography available for this voice actor." }}
               />
             </section>
 
             {/* Characters Voiced Section */}
             <section>
-              <div className="flex items-center gap-4 mb-10">
-                <div className="w-[3px] h-8 bg-red-600 rounded-full" />
-                <h2 className="text-3xl font-black text-white uppercase tracking-tight">Characters Voiced</h2>
+              <div className="flex items-center justify-between mb-6 sm:mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-[3px] h-5 bg-red-600 rounded-full" />
+                  <h2 className="text-base sm:text-xl font-black text-white uppercase tracking-tight">Characters Voiced</h2>
+                </div>
+                <span className="text-[10px] sm:text-[11px] font-bold text-white/20 uppercase tracking-widest">{staff.characterMedia?.edges?.filter(e => e.node.type === "ANIME").length || 0} ROLES</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 {staff.characterMedia?.edges?.map((edge, i) => {
                   if (edge.node.type !== "ANIME") return null;
                   const character = edge.characters?.[0];
