@@ -6,6 +6,7 @@ import { getAnimeDetails, getEpisodeTitles, getAniwatchId, getAniwatchEpisodes, 
 import { resolveAnikaiMatch, resolveAniwatchMatch, scoreMetadata } from "../services/anikaiMapping";
 import { useLanguage } from "../context/LanguageContext";
 import { useUserList } from "../context/UserListContext";
+import { useLoading } from "../context/LoadingContext";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
@@ -55,6 +56,7 @@ export default function Watch() {
   const isMal = new URLSearchParams(location.search).get("mal") === "true";
   const { getTitle } = useLanguage();
   const { list, addToList, removeFromList } = useUserList();
+  const { setPageLoading } = useLoading();
 
   const [activeEpisode, setActiveEpisode] = useState(1);
   const [addingAction, setAddingAction] = useState(false);
@@ -144,6 +146,18 @@ export default function Watch() {
   const [aniwatchEps, setAniwatchEps] = useState([]);
   const [anikaiEpisodes, setAnikaiEpisodes] = useState([]);
   const [fetchError, setFetchError] = useState(null);
+
+  // Sync global page loader with iframe loading
+  useEffect(() => {
+    if (iframeLoaded || fetchError || (streamUrl && streamData && !streamData.iframe_url && !streamLoading)) {
+      setPageLoading(false);
+    }
+  }, [iframeLoaded, fetchError, streamUrl, streamData, streamLoading, setPageLoading]);
+
+  // Clean up loading state on unmount
+  useEffect(() => {
+    return () => setPageLoading(false);
+  }, [setPageLoading]);
 
   // Reset iframe loading state whenever the URL changes
   useEffect(() => {
@@ -884,6 +898,7 @@ export default function Watch() {
       }
 
       setStreamLoading(true);
+      setPageLoading(true);
       setFetchError(null);
       setStreamUrl("");
       setStreamData(null);

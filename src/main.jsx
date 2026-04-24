@@ -5,6 +5,7 @@ import './index.css'
 import App from './App.jsx'
 import { LanguageProvider } from './context/LanguageContext.jsx'
 import { UserListProvider } from './context/UserListContext.jsx'
+import { LoadingProvider } from './context/LoadingContext.jsx'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,7 +21,9 @@ createRoot(document.getElementById('root')).render(
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <UserListProvider>
-          <App />
+          <LoadingProvider>
+            <App />
+          </LoadingProvider>
         </UserListProvider>
       </LanguageProvider>
     </QueryClientProvider>
