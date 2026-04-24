@@ -130,12 +130,7 @@ export default function Navbar() {
                   window.scrollTo(0, 0);
                 }}
               >
-                <span className="text-[20px] md:text-[22px] font-bold italic text-white leading-none tracking-tight">
-                  Ani
-                </span>
-                <span className="text-[20px] md:text-[22px] font-bold italic bg-red-600 text-white px-[5px] py-[2px] rounded-[4px] leading-none -ml-px">
-                  XO
-                </span>
+                <img src="/logo.png" alt="AniXO" className="h-[82px] md:h-[114px] w-auto object-contain" style={{ filter: 'brightness(1.2) contrast(1.1)' }} />
               </Link>
             )}
           </div>

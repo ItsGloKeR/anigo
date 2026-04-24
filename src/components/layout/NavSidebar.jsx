@@ -131,11 +131,10 @@ export default function NavSidebar({ open, onClose, initialTab = "menu" }) {
       >
         {/* Header with Close */}
         <div className="px-4 py-3 flex items-center justify-between">
-           <div className="flex items-center gap-0">
-             <span className="text-[16px] font-bold italic text-white leading-none tracking-tight">Ani</span>
-             <span className="text-[16px] font-bold italic bg-red-600 text-white px-[4px] py-[1px] rounded-[2.5px] leading-none -ml-px">XO</span>
-           </div>
-           <button onClick={onClose} className="text-white/20 hover:text-white transition-colors p-1.5"><X size={18} /></button>
+          <div className="flex items-center gap-0">
+            <img src="/logo.png" alt="AniXO" className="h-[98px] object-contain drop-shadow-[0_0_10px_rgba(220,38,38,0.2)] -ml-2" />
+          </div>
+          <button onClick={onClose} className="text-white/20 hover:text-white transition-colors p-1.5"><X size={18} /></button>
         </div>
 
         {/* Triple Tab Controls */}
@@ -148,9 +147,8 @@ export default function NavSidebar({ open, onClose, initialTab = "menu" }) {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-3 flex flex-col items-center gap-1 transition-all relative ${
-                activeTab === tab.id ? "text-red-500" : "text-white/20 hover:text-white/40"
-              }`}
+              className={`flex-1 py-3 flex flex-col items-center gap-1 transition-all relative ${activeTab === tab.id ? "text-red-500" : "text-white/20 hover:text-white/40"
+                }`}
             >
               <tab.icon size={14} strokeWidth={activeTab === tab.id ? 3 : 2} />
               <span className={`text-[9px] font-medium uppercase tracking-widest ${activeTab === tab.id ? 'opacity-100' : 'opacity-40'}`}>
@@ -165,7 +163,7 @@ export default function NavSidebar({ open, onClose, initialTab = "menu" }) {
 
         {/* Tab Content Area */}
         <div className="flex-1 overflow-y-auto mt-1 scrollbar-hide">
-          
+
           {/* MENU TAB */}
           {activeTab === "menu" && (
             <div className="p-5 pb-20 space-y-8 animate-in fade-in duration-300">
@@ -263,7 +261,7 @@ export default function NavSidebar({ open, onClose, initialTab = "menu" }) {
 
                       <div className="space-y-0.5 pl-0.5">
                         {items.slice(0, 8).map((item) => (
-                          <div 
+                          <div
                             key={item.id}
                             className="flex items-center gap-2.5 py-2 px-2.5 rounded-[3px] hover:bg-white/5 transition-all group cursor-pointer border border-transparent"
                             onClick={() => {
@@ -285,17 +283,16 @@ export default function NavSidebar({ open, onClose, initialTab = "menu" }) {
             </div>
           )}
         </div>
-        
+
         {/* Footer info or legal links can go here */}
         <div className="p-5 bg-[#0c0c0c] border-t border-white/5 mb-[-2px]">
-           <Link to="/home" onClick={onClose} className="flex items-center gap-0 mb-1 opacity-40 hover:opacity-100 transition-opacity">
-             <span className="text-[12px] font-bold italic text-white tracking-tight">Ani</span>
-             <span className="text-[12px] font-bold italic bg-red-600 text-white px-[3px] py-[0.5px] rounded-[2px] -ml-px">XO</span>
-           </Link>
-           <div className="flex gap-3">
-             <a href="#" className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/20 hover:text-white transition-colors">Discord</a>
-             <a href="#" className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/20 hover:text-white transition-colors">Telegram</a>
-           </div>
+          <Link to="/home" onClick={onClose} className="flex items-center gap-0 mb-3 opacity-40 hover:opacity-100 transition-opacity">
+            <img src="/logo.png" alt="AniXO" className="h-[64px] object-contain -ml-1" />
+          </Link>
+          <div className="flex gap-3">
+            <a href="#" className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/20 hover:text-white transition-colors">Discord</a>
+            <a href="#" className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/20 hover:text-white transition-colors">Telegram</a>
+          </div>
         </div>
       </div>
     </div>

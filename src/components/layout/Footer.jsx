@@ -36,18 +36,17 @@ export default function Footer() {
     <footer className="relative bg-[#080808] pt-20 pb-10 mt-20 lg:mt-32 overflow-hidden border-t border-white/5">
       {/* Background Decorative Element */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-px bg-gradient-to-r from-transparent via-red-600/50 to-transparent" />
-      
+
       <div className="max-w-[1720px] mx-auto px-4 md:px-10 lg:px-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 mb-20">
           {/* Brand Column */}
           <div className="space-y-6">
-            <Link 
-              to="/home" 
+            <Link
+              to="/home"
               className="flex items-center gap-0 group"
               onClick={() => window.scrollTo(0, 0)}
             >
-              <span className="text-[24px] font-black italic text-white leading-none tracking-tight group-hover:text-red-500 transition-colors">Ani</span>
-              <span className="text-[24px] font-black italic bg-red-600 text-white px-[5px] py-[3px] rounded-[4px] leading-none ml-[-1px] shadow-lg shadow-red-900/20">XO</span>
+              <img src="/logo.png" alt="AniXO" className="h-[122px] object-contain drop-shadow-[0_0_15px_rgba(220,38,38,0.2)]" />
             </Link>
             <p className="text-[13px] text-white/40 leading-relaxed font-medium max-w-[280px]">
               AniXo is a premier destination for high-fidelity anime streaming. We provide a seamless, ad-free experience for the global anime community.
@@ -67,7 +66,7 @@ export default function Footer() {
                   const Icon = link.icon;
                   return (
                     <li key={link.name}>
-                      <Link 
+                      <Link
                         to={link.path}
                         className="group flex items-center gap-2 text-[12px] font-bold text-white/30 hover:text-white transition-all duration-300"
                       >
