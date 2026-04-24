@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getBrowseAnime, getBrowseAnimeMAL, checkDubAvailability, getRecentDubs } from "../services/api";
+import { getBrowseAnime, getBrowseAnimeAnikai, checkDubAvailability, getRecentDubs, getAnikaiGenres } from "../services/api";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import AnimeCard from "../components/common/AnimeCard";
@@ -14,6 +14,14 @@ export default function Browse() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [openDropdown, setOpenDropdown] = useState(null);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  const { data: dynamicGenresData } = useQuery({
+    queryKey: ["anikaiGenres"],
+    queryFn: getAnikaiGenres,
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+
+  const displayGenres = dynamicGenresData?.length > 0 ? dynamicGenresData : ALL_GENRES;
 
   // 1. Filter derivation from URL
   const filters = useMemo(() => {
@@ -83,7 +91,7 @@ export default function Browse() {
     }
   }, [setSearchParams]);
   const queryData = useMemo(() => {
-    const isMAL = filters.include.includes("Avant Garde");
+    const isAnikai = filters.include.length > 0;
     const vars = {
       page: filters.page,
       perPage: 36,
@@ -103,6 +111,7 @@ export default function Browse() {
       });
       if (gen_in.length > 0) vars.genre_in = gen_in;
       if (t_in.length > 0) vars.tag_in = t_in;
+      vars.genres = filters.include; // Raw genres for MAL fetch
     }
 
     if (filters.status) vars.status = filters.status;
@@ -110,17 +119,18 @@ export default function Browse() {
     if (filters.season) vars.season = filters.season;
     if (filters.country.length > 0) vars.country = filters.country[0];
     if (filters.rating) vars.averageScore_greater = parseInt(filters.rating);
+    if (filters.language.length > 0) vars.language = filters.language;
 
-    return { vars, isMAL, lang: filters.language };
+    return { vars, isAnikai, lang: filters.language };
   }, [filters]);
 
   const { data: result = { media: [], pageInfo: { total: 0 } }, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["browse", queryData],
     queryFn: async () => {
-      const { vars, isMAL } = queryData;
+      const { vars, isAnikai } = queryData;
 
-      // Use the same Dub source as homepage when Dub language is selected.
-      if (filters.language.includes("DUB")) {
+      // Use the same Dub source as homepage when Dub language is selected, unless we are using Anikai which has native dub filtering
+      if (!isAnikai && filters.language.includes("DUB")) {
         const cardsPerPage = 36;
         const startIndex = (filters.page - 1) * cardsPerPage;
         const endIndex = startIndex + cardsPerPage;
@@ -166,20 +176,23 @@ export default function Browse() {
         };
       }
 
-      let res = await (isMAL ? getBrowseAnimeMAL(vars) : getBrowseAnime(vars));
-      
+      let res = await (isAnikai ? getBrowseAnimeAnikai(vars) : getBrowseAnime(vars));
+
       // SMART-DECORATE WITH DUB INFO
       // 1. Title Heuristic (Instant) + 2. Backend Verification (Accurate)
       const mediaWithDub = await Promise.all(
         (res.media || []).map(async (anime) => {
           try {
+            // If Anikai already supplied the dub status directly from the HTML scraper, trust it instantly!
+            if (anime.isAnikai && anime.dub !== undefined) return anime;
+
             // Heuristic Check (First Pass)
             const searchTitle = (anime.title?.english || "").toLowerCase();
             const synonyms = (anime.synonyms || []).map(s => s.toLowerCase());
-            const hasDubKeyword = searchTitle.includes("(dub)") || 
-                                 searchTitle.includes("dubbed") || 
-                                 synonyms.some(s => s.includes("dub"));
-            
+            const hasDubKeyword = searchTitle.includes("(dub)") ||
+              searchTitle.includes("dubbed") ||
+              synonyms.some(s => s.includes("dub"));
+
             // If heuristic fails, check backend
             if (hasDubKeyword) return { ...anime, dub: true };
 
@@ -207,9 +220,9 @@ export default function Browse() {
       // Dub feed data comes from a different source and often lacks AniList metadata
       // like genres/tags/country. Skip those metadata filters in Dub mode.
       if (!isDubMode) {
-        if (filters.exclude.some(ex => allLabels.includes(GENRE_MAP[ex] || ex))) return false;
+        if (filters.exclude.some(ex => allLabels.includes(GENRE_MAP[ex]) || allLabels.includes(ex))) return false;
         if (filters.include.length > 0) {
-          if (!filters.include.some(inc => allLabels.includes(GENRE_MAP[inc] || inc))) return false;
+          if (!filters.include.some(inc => allLabels.includes(GENRE_MAP[inc]) || allLabels.includes(inc))) return false;
         }
         if (filters.country.length > 0) {
           const origin = anime.countryOfOrigin || "";
@@ -333,7 +346,7 @@ export default function Browse() {
 
               {[
                 { label: "Types", key: "types", options: [{ label: "TV", value: "TV" }, { label: "Movie", value: "MOVIE" }, { label: "OVA", value: "OVA" }, { label: "ONA", value: "ONA" }, { label: "Special", value: "SPECIAL" }] },
-                { label: "Genres", key: "genre", options: ALL_GENRES },
+                { label: "Genres", key: "genre", options: displayGenres },
                 { label: "Status", key: "status", options: [{ label: "Any", value: "" }, { label: "Releasing", value: "RELEASING" }, { label: "Finished", value: "FINISHED" }, { label: "Upcoming", value: "NOT_YET_RELEASED" }] },
                 { label: "Advanced", key: "advanced", active: filters.year || filters.season || filters.rating }
               ].map(dd => (
@@ -351,10 +364,9 @@ export default function Browse() {
                   {openDropdown === dd.key && (
                     <>
                       <div className="fixed inset-0 z-90" onClick={() => setOpenDropdown(null)} />
-                      <div className={`absolute top-[calc(100%+8px)] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-100 ${
-                        dd.key === 'genre' ? 'w-[540px] max-w-[calc(100vw-32px)] left-1/2 -translate-x-1/2' : 
-                        dd.key === 'advanced' ? 'right-0' : 'w-40 left-0'
-                      }`}>
+                      <div className={`absolute top-[calc(100%+8px)] bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-100 ${dd.key === 'genre' ? 'w-[540px] max-w-[calc(100vw-32px)] left-1/2 -translate-x-1/2' :
+                          dd.key === 'advanced' ? 'right-0' : 'w-40 left-0'
+                        }`}>
 
                         {(dd.key === 'types' || dd.key === 'status') && (
                           <div className="flex flex-col gap-0.5">
@@ -366,8 +378,8 @@ export default function Browse() {
                                   setOpenDropdown(null);
                                 }}
                                 className={`w-full px-3 py-1.5 rounded-lg text-left text-[11px] transition-all flex items-center justify-between group ${(dd.key === 'types' ? filters.formats.includes(opt.value) : filters.status === opt.value)
-                                    ? 'bg-red-600/10 text-red-500 font-medium'
-                                    : 'text-white/40 hover:bg-white/3 hover:text-white'
+                                  ? 'bg-red-600/10 text-red-500 font-medium'
+                                  : 'text-white/40 hover:bg-white/3 hover:text-white'
                                   }`}
                               >
                                 <span>{opt.label}</span>
@@ -385,8 +397,8 @@ export default function Browse() {
                                   key={opt}
                                   onClick={() => toggleGenre(opt)}
                                   className={`px-2 py-1.5 rounded text-left text-[10px] transition-all flex items-center justify-between group ${filters.include.includes(opt)
-                                      ? 'bg-red-600/10 text-red-500 font-medium border border-red-500/20'
-                                      : 'text-white/30 border border-transparent hover:bg-white/3 hover:text-white/60'
+                                    ? 'bg-red-600/10 text-red-500 font-medium border border-red-500/20'
+                                    : 'text-white/30 border border-transparent hover:bg-white/3 hover:text-white/60'
                                     }`}
                                 >
                                   <span className="truncate">{opt}</span>
@@ -408,15 +420,15 @@ export default function Browse() {
                                 <div key={key} className="flex-1">
                                   <label className="block text-[7px] text-white/20 uppercase tracking-[0.2em] mb-1 px-1 font-bold">{key}</label>
                                   <div className="relative">
-                                    <select 
-                                      value={filters[key]} 
+                                    <select
+                                      value={filters[key]}
                                       onChange={(e) => setSingleFilter(key, e.target.value)}
                                       className="w-full h-7 bg-white/3 border border-white/5 rounded-md px-2 pr-6 text-[10px] text-white/80 outline-none hover:bg-white/6 transition-all cursor-pointer appearance-none"
                                     >
                                       <option value="" className="bg-[#0d0d0d]">{key === 'season' ? 'Season' : 'Year'}</option>
-                                      {key === 'season' 
+                                      {key === 'season'
                                         ? ["WINTER", "SPRING", "SUMMER", "FALL"].map(s => <option key={s} value={s} className="bg-[#0d0d0d]">{s}</option>)
-                                        : Array.from({length: 45}, (_, i) => 2026-i).map(y => <option key={y} value={y} className="bg-[#0d0d0d]">{y}</option>)
+                                        : Array.from({ length: 45 }, (_, i) => 2026 - i).map(y => <option key={y} value={y} className="bg-[#0d0d0d]">{y}</option>)
                                       }
                                     </select>
                                     <ChevronDown size={8} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none" />
@@ -429,7 +441,7 @@ export default function Browse() {
                               <div className="space-y-1.5">
                                 <label className="block text-[7px] text-white/20 uppercase tracking-[0.2em] px-1 font-bold">Country</label>
                                 <div className="space-y-1 px-0.5">
-                                  {[{label:"China", v:"CN"}, {label:"Japan", v:"JP"}].map(c => (
+                                  {[{ label: "China", v: "CN" }, { label: "Japan", v: "JP" }].map(c => (
                                     <button key={c.v} onClick={() => toggleFilter('country', c.v)} className="flex items-center gap-1.5 group w-full py-0.5">
                                       <div className={`w-2.5 h-2.5 rounded-[2px] border transition-all flex items-center justify-center ${filters.country.includes(c.v) ? 'bg-red-600 border-red-600' : 'bg-white/5 border-white/10 group-hover:border-white/20'}`}>
                                         {filters.country.includes(c.v) && <Check size={7} strokeWidth={4} className="text-white" />}
@@ -444,21 +456,19 @@ export default function Browse() {
                                 <label className="block text-[7px] text-white/20 uppercase tracking-[0.2em] px-1 font-bold">Language</label>
                                 <div className="space-y-1 px-0.5">
                                   {[
-                                    {label: "Sub", v: "SUB"},
-                                    {label: "Dub", v: "DUB"}
+                                    { label: "Sub", v: "SUB" },
+                                    { label: "Dub", v: "DUB" }
                                   ].map(l => (
                                     <label key={l.v} className="flex items-center gap-2 px-2 py-1.5 hover:bg-white/5 rounded-md cursor-pointer group transition-colors">
-                                      <div 
+                                      <div
                                         onClick={() => toggleFilter('language', l.v)}
-                                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${
-                                          filters.language.includes(l.v) ? 'bg-red-600 border-red-600' : 'border-white/20 group-hover:border-white/40'
-                                        }`}
+                                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${filters.language.includes(l.v) ? 'bg-red-600 border-red-600' : 'border-white/20 group-hover:border-white/40'
+                                          }`}
                                       >
                                         {filters.language.includes(l.v) && <Check size={10} strokeWidth={3} />}
                                       </div>
-                                      <span className={`text-[10px] font-medium transition-colors ${
-                                        filters.language.includes(l.v) ? 'text-white' : 'text-white/40 group-hover:text-white/60'
-                                      }`}>
+                                      <span className={`text-[10px] font-medium transition-colors ${filters.language.includes(l.v) ? 'text-white' : 'text-white/40 group-hover:text-white/60'
+                                        }`}>
                                         {l.label}
                                       </span>
                                     </label>
@@ -468,8 +478,8 @@ export default function Browse() {
                             </div>
 
                             <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                              <button 
-                                onClick={() => setSingleFilter("onList", filters.excludeMyList ? "" : "false")} 
+                              <button
+                                onClick={() => setSingleFilter("onList", filters.excludeMyList ? "" : "false")}
                                 className="flex items-center gap-1.5 group py-1"
                               >
                                 <div className={`w-2.5 h-2.5 rounded-[2px] border transition-all flex items-center justify-center ${filters.excludeMyList ? 'bg-red-600 border-red-600' : 'bg-white/5 border-white/10 group-hover:border-white/20'}`}>
@@ -532,7 +542,7 @@ export default function Browse() {
               <div className="relative grid grid-cols-2 gap-2">
                 {[
                   { label: "Types", key: "types", options: [{ label: "TV", value: "TV" }, { label: "Movie", value: "MOVIE" }, { label: "OVA", value: "OVA" }, { label: "ONA", value: "ONA" }, { label: "Special", value: "SPECIAL" }] },
-                  { label: "Genres", key: "genre", options: ALL_GENRES },
+                  { label: "Genres", key: "genre", options: displayGenres },
                   { label: "Status", key: "status", options: [{ label: "Any", value: "" }, { label: "Releasing", value: "RELEASING" }, { label: "Finished", value: "FINISHED" }, { label: "Upcoming", value: "NOT_YET_RELEASED" }] },
                   { label: "Advanced", key: "advanced", active: filters.year || filters.season || filters.rating }
                 ].map(dd => (
@@ -554,13 +564,12 @@ export default function Browse() {
                       <>
                         <div className="fixed inset-0 z-90" onClick={() => setOpenDropdown(null)} />
                         <div
-                          className={`absolute top-full mt-2 bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-100 ${
-                            dd.key === "genre"
+                          className={`absolute top-full mt-2 bg-[#0d0d0d] border border-white/10 rounded-xl shadow-[0_20px_40px_-8px_rgba(0,0,0,0.8)] p-1.5 z-100 ${dd.key === "genre"
                               ? "left-0 right-0 w-auto max-h-[70vh] overflow-y-auto"
                               : dd.key === "advanced"
-                              ? "right-0 w-80"
-                              : "left-0 w-40"
-                          }`}
+                                ? "right-0 w-80"
+                                : "left-0 w-40"
+                            }`}
                         >
                           {(dd.key === "types" || dd.key === "status") && (
                             <div className="flex flex-col gap-0.5">
@@ -571,12 +580,11 @@ export default function Browse() {
                                     toggleFilter(dd.key === "types" ? "format" : "status", opt.value);
                                     setOpenDropdown(null);
                                   }}
-                                  className={`w-full px-3 py-1.5 rounded-lg text-left text-[11px] transition-all flex items-center justify-between group ${
-                                    dd.key === "types" ? (filters.formats.includes(opt.value) ? "bg-red-600/10 text-red-500 font-medium" : "text-white/40 hover:bg-white/3 hover:text-white")
-                                    : filters.status === opt.value
-                                    ? "bg-red-600/10 text-red-500 font-medium"
-                                    : "text-white/40 hover:bg-white/3 hover:text-white"
-                                  }`}
+                                  className={`w-full px-3 py-1.5 rounded-lg text-left text-[11px] transition-all flex items-center justify-between group ${dd.key === "types" ? (filters.formats.includes(opt.value) ? "bg-red-600/10 text-red-500 font-medium" : "text-white/40 hover:bg-white/3 hover:text-white")
+                                      : filters.status === opt.value
+                                        ? "bg-red-600/10 text-red-500 font-medium"
+                                        : "text-white/40 hover:bg-white/3 hover:text-white"
+                                    }`}
                                 >
                                   <span>{opt.label}</span>
                                   {(dd.key === "types" ? filters.formats.includes(opt.value) : filters.status === opt.value) && <Check size={10} />}
@@ -592,11 +600,10 @@ export default function Browse() {
                                   <button
                                     key={opt}
                                     onClick={() => toggleGenre(opt)}
-                                    className={`px-2 py-1.5 rounded text-left text-[10px] transition-all flex items-center justify-between group ${
-                                      filters.include.includes(opt)
+                                    className={`px-2 py-1.5 rounded text-left text-[10px] transition-all flex items-center justify-between group ${filters.include.includes(opt)
                                         ? "bg-red-600/10 text-red-500 font-medium border border-red-500/20"
                                         : "text-white/30 border border-transparent hover:bg-white/3 hover:text-white/60"
-                                    }`}
+                                      }`}
                                   >
                                     <span className="truncate">{opt}</span>
                                     {filters.include.includes(opt) && <Check size={9} />}
@@ -639,15 +646,15 @@ export default function Browse() {
                                         </option>
                                         {key === "season"
                                           ? ["WINTER", "SPRING", "SUMMER", "FALL"].map(s => (
-                                              <option key={s} value={s} className="bg-[#0d0d0d]">
-                                                {s}
-                                              </option>
-                                            ))
+                                            <option key={s} value={s} className="bg-[#0d0d0d]">
+                                              {s}
+                                            </option>
+                                          ))
                                           : Array.from({ length: 45 }, (_, i) => 2026 - i).map(y => (
-                                              <option key={y} value={y} className="bg-[#0d0d0d]">
-                                                {y}
-                                              </option>
-                                            ))}
+                                            <option key={y} value={y} className="bg-[#0d0d0d]">
+                                              {y}
+                                            </option>
+                                          ))}
                                       </select>
                                       <ChevronDown
                                         size={8}
@@ -671,22 +678,20 @@ export default function Browse() {
                                         className="flex items-center gap-1.5 group w-full py-0.5"
                                       >
                                         <div
-                                          className={`w-2.5 h-2.5 rounded-[2px] border transition-all flex items-center justify-center ${
-                                            filters.country.includes(c.v)
+                                          className={`w-2.5 h-2.5 rounded-[2px] border transition-all flex items-center justify-center ${filters.country.includes(c.v)
                                               ? "bg-red-600 border-red-600"
                                               : "bg-white/5 border-white/10 group-hover:border-white/20"
-                                          }`}
+                                            }`}
                                         >
                                           {filters.country.includes(c.v) && (
                                             <Check size={7} strokeWidth={4} className="text-white" />
                                           )}
                                         </div>
                                         <span
-                                          className={`text-[10px] transition-colors ${
-                                            filters.country.includes(c.v)
+                                          className={`text-[10px] transition-colors ${filters.country.includes(c.v)
                                               ? "text-white/90"
                                               : "text-white/30 group-hover:text-white/50"
-                                          }`}
+                                            }`}
                                         >
                                           {c.label}
                                         </span>
@@ -707,20 +712,18 @@ export default function Browse() {
                                       >
                                         <div
                                           onClick={() => toggleFilter("language", l.v)}
-                                          className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${
-                                            filters.language.includes(l.v)
+                                          className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-all ${filters.language.includes(l.v)
                                               ? "bg-red-600 border-red-600"
                                               : "border-white/20 group-hover:border-white/40"
-                                          }`}
+                                            }`}
                                         >
                                           {filters.language.includes(l.v) && <Check size={10} strokeWidth={3} />}
                                         </div>
                                         <span
-                                          className={`text-[10px] font-medium transition-colors ${
-                                            filters.language.includes(l.v)
+                                          className={`text-[10px] font-medium transition-colors ${filters.language.includes(l.v)
                                               ? "text-white"
                                               : "text-white/40 group-hover:text-white/60"
-                                          }`}
+                                            }`}
                                         >
                                           {l.label}
                                         </span>
@@ -736,20 +739,18 @@ export default function Browse() {
                                   className="flex items-center gap-1.5 group py-1"
                                 >
                                   <div
-                                    className={`w-2.5 h-2.5 rounded-[2px] border transition-all flex items-center justify-center ${
-                                      filters.excludeMyList ? "bg-red-600 border-red-600" : "bg-white/5 border-white/10 group-hover:border-white/20"
-                                    }`}
+                                    className={`w-2.5 h-2.5 rounded-[2px] border transition-all flex items-center justify-center ${filters.excludeMyList ? "bg-red-600 border-red-600" : "bg-white/5 border-white/10 group-hover:border-white/20"
+                                      }`}
                                   >
                                     {filters.excludeMyList && (
                                       <Check size={7} strokeWidth={4} className="text-white" />
                                     )}
                                   </div>
                                   <span
-                                    className={`text-[10px] transition-colors ${
-                                      filters.excludeMyList
+                                    className={`text-[10px] transition-colors ${filters.excludeMyList
                                         ? "text-white/90"
                                         : "text-white/30 group-hover:text-white/50"
-                                    }`}
+                                      }`}
                                   >
                                     Exclude my list
                                   </span>

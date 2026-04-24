@@ -11,6 +11,7 @@ from functools import wraps
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from bs4 import BeautifulSoup
+import requests
 import cloudscraper
 
 
@@ -225,6 +226,188 @@ class AnikaiScraper:
         except Exception as e:
             log.warning("Anikai: Decryption-M failed: %s", e)
             return None
+
+    @cached("anikai:genres", ttl=86400) # Cache for 24 hours
+    def get_genres(self):
+        try:
+            log.info("Anikai: Fetching genres list...")
+            resp = http.get(self.BASE, timeout=self.TIMEOUT_EXTERNAL)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            genres = set()
+            for a in soup.find_all("a", href=True):
+                if "/genres/" in a["href"]:
+                    genres.add(a.get_text(strip=True))
+            return sorted(list(genres))
+        except Exception as e:
+            log.error("Anikai: Failed to fetch genres: %s", e)
+            return []
+
+    def resolve_to_anilist(self, slug):
+        """Resolve an Anikai slug to an AniList ID."""
+        info = self.get_info(slug)
+        title = info.get("title") if info else None
+        
+        # If get_info failed (e.g. Anikai redirected to browser page) or returned raw slug
+        if not title or title == slug:
+            parts = slug.split('-')
+            # Anikai slugs end with a short alphanumeric hash like "-6e9kv"
+            if len(parts) > 1 and len(parts[-1]) <= 6 and parts[-1].isalnum():
+                title = ' '.join(parts[:-1])
+            else:
+                title = ' '.join(parts)
+            
+        log.info(f"Resolving Anikai slug '{slug}' (Derived Title: {title}) to AniList...")
+        
+        # Clean title (remove (Dub), (2025), etc.)
+        clean_title = re.sub(r'\(Dub\)|\(\d{4}\)', '', title).strip()
+        
+        # Search AniList
+        search_query = """
+        query ($search: String) {
+          Page(page: 1, perPage: 5) {
+            media(search: $search, type: ANIME) {
+              id
+              title { romaji english native }
+            }
+          }
+        }
+        """
+        try:
+            resp = http.post(
+                "https://graphql.anilist.co",
+                json={"query": search_query, "variables": {"search": clean_title}},
+                headers={"Content-Type": "application/json"}
+            )
+            data = resp.json()
+            results = data.get("data", {}).get("Page", {}).get("media", [])
+            
+            if not results:
+                return None
+                
+            # Best match logic
+            best_match = results[0] # Default to first result
+            
+            titles = []
+            for r in results:
+                titles.extend([
+                    r["title"].get("romaji", ""),
+                    r["title"].get("english", ""),
+                    r["title"].get("native", "")
+                ])
+            titles = [t for t in titles if t]
+            
+            matches = difflib.get_close_matches(clean_title, titles, n=1, cutoff=0.6)
+            if matches:
+                matched_title = matches[0]
+                for r in results:
+                    if matched_title in [r["title"].get("romaji"), r["title"].get("english"), r["title"].get("native")]:
+                        best_match = r
+                        break
+            
+            log.info(f"Resolved Anikai '{slug}' -> AniList ID: {best_match['id']}")
+            return {"anilist_id": best_match["id"], "title": best_match["title"]}
+            
+        except Exception as e:
+            log.error(f"Anikai resolution failed: {e}")
+            return None
+
+    @cached("anikai:browse", ttl=300)
+    def browse_genre(self, genre_id, page=1, sort="updated_date", formats=None, status=None, year=None, season=None, country=None, language=None):
+        try:
+            log.info(f"Anikai: Browsing genre ID {genre_id} (Page {page}, Sort {sort}, Formats {formats}, Status {status}, Year {year}, Season {season}, Country {country}, Language {language})")
+            url = f"{self.BASE}/browser"
+            params = {"genre[]": genre_id, "page": page, "sort": sort}
+            
+            # Anikai uses type[] for formats
+            if formats:
+                # Flask request.args.getlist or comma separated
+                if isinstance(formats, str):
+                    formats = [f.strip() for f in formats.split(',')]
+                # Anikai format types are lowercase: tv, movie, ova, ona, special, music
+                params["type[]"] = [f.lower() for f in formats]
+                
+            if status:
+                status_map = {"RELEASING": "releasing", "FINISHED": "completed", "NOT_YET_RELEASED": "info"}
+                if status in status_map:
+                    params["status[]"] = status_map[status]
+                    
+            if year:
+                params["year[]"] = str(year)
+                
+            if season:
+                params["season[]"] = season.lower()
+                
+            if country:
+                country_map = {"JP": "11", "CN": "2"}
+                if country in country_map:
+                    params["country[]"] = country_map[country]
+                    
+            if language:
+                if isinstance(language, str):
+                    language = [l.strip() for l in language.split(',')]
+                params["language[]"] = [l.lower() for l in language]
+
+            resp = http.get(url, params=params, timeout=self.TIMEOUT_EXTERNAL)
+            soup = BeautifulSoup(resp.text, "html.parser")
+            
+            results = []
+            for item in soup.select('div.inner'):
+                poster_elem = item.select_one('a.poster img')
+                title_elem = item.select_one('a.title')
+                link_elem = item.select_one('a.poster')
+                
+                if not title_elem or not link_elem:
+                    continue
+                    
+                title = title_elem.get('title') or title_elem.get_text(strip=True)
+                slug_href = link_elem.get('href', '')
+                slug = slug_href.replace('/watch/', '').strip() if slug_href else None
+                poster = poster_elem.get('data-src') or poster_elem.get('src') if poster_elem else None
+                
+                if slug and title:
+                    # Extract episode count and format type
+                    episodes = None
+                    fmt = "TV"
+                    has_dub = False
+                    info_div = item.select_one('div.info')
+                    if info_div:
+                        sub_span = info_div.select_one('span.sub') or info_div.select_one('span.ep')
+                        dub_span = info_div.select_one('span.dub')
+                        
+                        if dub_span:
+                            has_dub = True
+                            
+                        # Use dub count if available, else sub count
+                        target_span = dub_span or sub_span
+                        if target_span:
+                            ep_txt = target_span.get_text(strip=True)
+                            if ep_txt.isdigit():
+                                episodes = int(ep_txt)
+                        
+                        b_tags = info_div.select('b')
+                        if b_tags:
+                            # The last 'b' tag usually contains the format like 'TV' or 'ONA'
+                            # Sometimes an earlier 'b' tag contains the total episodes (e.g., '26')
+                            last_b_text = b_tags[-1].get_text(strip=True)
+                            if not last_b_text.isdigit():
+                                fmt = last_b_text
+
+                    results.append({
+                        "id": slug,
+                        "title": {"english": title, "romaji": title, "native": title},
+                        "coverImage": {"large": poster, "medium": poster},
+                        "episodes": episodes,
+                        "format": fmt,
+                        "dub": has_dub,
+                        "isMAL": False,
+                        "isAnikai": True
+                    })
+                    
+            has_next = bool(soup.select('.pagination a[title="Next"]'))
+            return {"media": results, "pageInfo": {"hasNextPage": has_next, "currentPage": page}}
+        except Exception as e:
+            log.error(f"Anikai: Browse failed: {e}")
+            return {"media": [], "pageInfo": {"hasNextPage": False}}
 
     @cached("anikai:search", ttl=300)
     def search(self, query):
@@ -516,66 +699,6 @@ class AnikaiScraper:
         except Exception as e:
             log.error("Anikai: Recent fetch failed: %s", e)
             return {"results": [], "pageInfo": {"lastPage": 1, "currentPage": page, "hasNextPage": False}}
-
-    def resolve_to_anilist(self, slug):
-        """Resolve an Anikai slug to an AniList ID."""
-        info = self.get_info(slug)
-        if not info or not info.get("title"):
-            return None
-            
-        title = info["title"]
-        log.info(f"Resolving Anikai slug '{slug}' (Title: {title}) to AniList...")
-        
-        # Search AniList via our proxy
-        search_query = """
-        query ($search: String) {
-          Page(page: 1, perPage: 5) {
-            media(search: $search, type: ANIME) {
-              id
-              title { romaji english native }
-            }
-          }
-        }
-        """
-        try:
-            resp = http.post(
-                "https://graphql.anilist.co",
-                json={"query": search_query, "variables": {"search": title}},
-                headers={"Content-Type": "application/json"}
-            )
-            data = resp.json()
-            results = data.get("data", {}).get("Page", {}).get("media", [])
-            
-            if not results:
-                return None
-                
-            # Best match logic
-            best_match = results[0] 
-            
-            titles = []
-            for r in results:
-                titles.extend([
-                    r["title"].get("romaji", ""),
-                    r["title"].get("english", ""),
-                    r["title"].get("native", "")
-                ])
-            
-            titles = [t for t in titles if t]
-            
-            matches = difflib.get_close_matches(title, titles, n=1, cutoff=0.6)
-            if matches:
-                matched_title = matches[0]
-                for r in results:
-                    if matched_title in [r["title"].get("romaji"), r["title"].get("english"), r["title"].get("native")]:
-                        best_match = r
-                        break
-            
-            log.info(f"Resolved Anikai '{slug}' -> AniList ID: {best_match['id']}")
-            return {"anilist_id": best_match["id"], "title": best_match["title"]}
-            
-        except Exception as e:
-            log.error(f"Anikai resolution failed: {e}")
-            return None
 
 class GogoanimeScraper:
     """Gogoanime (gogoanimes.cv) scraper — search and episode IDs."""
@@ -896,8 +1019,25 @@ def index():
             "/api/gogoanime/episodes/<gogoanime_id>": "Gogoanime episodes",
             "/api/malsync/<mal_id>": "MALSync lookup",
             "/api/meta/episodes?title=": "Fallback episode metadata (Kitsu)",
+            "/api/python/resolve/<slug>": "Resolve string slug to AniList ID",
         },
     })
+
+
+@app.route("/api/python/resolve/<slug>", methods=["GET"])
+@api_response
+def api_python_resolve(slug):
+    # Try Anikai resolution first
+    result = anikai.resolve_to_anilist(slug)
+    if result:
+        return result
+        
+    # Fallback to Gogoanime resolution
+    result = gogoanime.resolve_to_anilist(slug)
+    if result:
+        return result
+        
+    return {"error": "Failed to resolve slug to AniList ID"}, 404
 
 
 @app.route("/api/meta/episodes", methods=["GET"])
@@ -916,6 +1056,25 @@ def api_meta_episodes():
 # ═══════════════════════════════════════════════════════════════════════════════
 #  API ROUTES — Anikai
 # ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/anikai/genres", methods=["GET"])
+@api_response
+def api_anikai_genres():
+    return {"genres": anikai.get_genres()}
+
+@app.route('/api/anikai/browse/<genre_id>', methods=['GET'])
+@api_response
+def api_anikai_browse(genre_id):
+    page = request.args.get('page', 1, type=int)
+    sort = request.args.get('sort', 'updated_date')
+    formats = request.args.getlist('formats[]') or request.args.get('formats')
+    status = request.args.get('status')
+    year = request.args.get('year')
+    season = request.args.get('season')
+    country = request.args.get('country')
+    language = request.args.getlist('language[]') or request.args.get('language')
+    return anikai.browse_genre(genre_id, page, sort, formats, status, year, season, country, language)
+
 
 @app.route("/api/anikai/search", methods=["GET"])
 @api_response
@@ -1125,4 +1284,18 @@ if __name__ == "__main__":
     log.info("HttpClient ready — 2 engines loaded")
     log.info("Engines: Anikai · Gogoanime")
     log.info("Server starting on port 5000...")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)
+
+# trigger reload
+
+# restart
+
+# clear cache
+
+# update episode counts
+
+# clear cache for episodes
+
+# clear cache for format types
+
+# clear cache for dub extraction

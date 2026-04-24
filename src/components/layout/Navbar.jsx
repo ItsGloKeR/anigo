@@ -3,7 +3,8 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { ALL_GENRES } from "../../constants/genres";
 import NavSidebar from "./NavSidebar";
 import { useLanguage } from "../../context/LanguageContext";
-import { searchAnime } from "../../services/api";
+import { useQuery } from "@tanstack/react-query";
+import { searchAnime, getAnikaiGenres } from "../../services/api";
 import { MessageSquare, Mic, Clock } from "lucide-react";
 
 
@@ -22,6 +23,13 @@ export default function Navbar() {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const searchContainerRef = useRef(null);
   const { language, setEN, setJP, getTitle } = useLanguage();
+
+  const { data: dynamicGenresData } = useQuery({
+    queryKey: ["anikaiGenres"],
+    queryFn: getAnikaiGenres,
+    staleTime: 1000 * 60 * 60 * 24,
+  });
+  const displayGenres = dynamicGenresData?.length > 0 ? dynamicGenresData : ALL_GENRES;
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -196,7 +204,7 @@ export default function Navbar() {
                       className="absolute top-[56px] left-0 -translate-x-[50px] bg-[#121212] border border-white/5 shadow-2xl p-5 w-[650px] z-110 rounded-b-[12px] animate-in fade-in slide-in-from-top-2 duration-200"
                     >
                       <div className="grid grid-cols-5 gap-x-4 gap-y-7">
-                        {ALL_GENRES.map((genre) => (
+                        {displayGenres.map((genre) => (
                           <Link
                             key={genre}
                             to={`/browse?genre=${genre}`}

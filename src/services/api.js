@@ -284,6 +284,16 @@ export async function getAnikaiDetails(slug) {
   }
 }
 
+export async function getAnikaiGenres() {
+  try {
+    const { data } = await axios.get(`${PYTHON_API}/api/anikai/genres`);
+    return data?.genres || [];
+  } catch (err) {
+    console.error("Failed to fetch genres from backend:", err.message);
+    return [];
+  }
+}
+
 const DETAIL_QUERY = `
 fragment RelationFields on Media {
   id
@@ -559,6 +569,54 @@ export async function getBrowseAnimeMAL(variables) {
   } catch (err) {
     console.error("Jikan API Error:", err);
     throw err;
+  }
+}
+
+export async function getBrowseAnimeAnikai({ page = 1, sort = "TRENDING_DESC", genres = [], format_in = [], status, seasonYear, season, country, language } = {}) {
+  if (!genres.length) return { media: [], pageInfo: {} };
+  
+  // We only fetch by the first genre for Anikai since it only supports single genre filtering via its ID easily
+  const { ANIKAI_GENRE_MAP } = await import('../constants/genres');
+  const genreId = ANIKAI_GENRE_MAP[genres[0]];
+  if (!genreId) return { media: [], pageInfo: {} };
+
+  // Map AniList sort strings to Anikai sort parameter
+  let anikaiSort = "updated_date";
+  const currentSort = sort[0] || "";
+  
+  if (currentSort.includes("POPULARITY")) anikaiSort = "most_followed";
+  else if (currentSort.includes("SCORE")) anikaiSort = "score";
+  else if (currentSort.includes("START_DATE")) anikaiSort = "release_date";
+  // By default, frontend's TRENDING_DESC will map to 'updated_date' to match Anikai's default behavior
+
+  try {
+    // Bust overly aggressive browser caching (1 hour) using a 5-minute timestamp bucket
+    const cacheBuster = Math.floor(Date.now() / 300000);
+    const apiParams = { page, sort: anikaiSort, _t: cacheBuster };
+    if (format_in && format_in.length > 0) {
+      apiParams.formats = format_in.join(',');
+    }
+    if (status) apiParams.status = status;
+    if (seasonYear) apiParams.year = seasonYear;
+    if (season) apiParams.season = season;
+    if (country) apiParams.country = country;
+    if (language && language.length > 0) {
+      apiParams.language = language.join(',');
+    }
+
+    const { data } = await axios.get(`${PYTHON_API}/api/anikai/browse/${genreId}`, {
+      params: apiParams
+    });
+    
+    // Inject the requested genre so that frontend client-side filtering doesn't strip the results
+    if (data && data.media) {
+      data.media = data.media.map(item => ({ ...item, genres: [genres[0]] }));
+    }
+    
+    return data;
+  } catch (err) {
+    console.error("Anikai Browse API Error:", err);
+    return { media: [], pageInfo: {} };
   }
 }
 
