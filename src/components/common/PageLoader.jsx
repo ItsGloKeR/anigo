@@ -14,13 +14,14 @@ export default function PageLoader() {
 
 
     const t1 = setTimeout(() => { setVisible(true); setProgress(30); }, 0);
-    const t2 = setTimeout(() => setProgress(60), 300);
-    const t3 = setTimeout(() => setProgress(85), 600);
-    const t4 = setTimeout(() => setProgress(100), 900);
-    const t5 = setTimeout(() => {
+    const t2 = setTimeout(() => setProgress(55), 500);
+    const t3 = setTimeout(() => setProgress(75), 1100);
+    const t4 = setTimeout(() => setProgress(90), 1700);
+    const t5 = setTimeout(() => setProgress(100), 2200);
+    const t6 = setTimeout(() => {
       setVisible(false);
       setProgress(0);
-    }, 1200);
+    }, 2600);
 
     return () => {
       clearTimeout(t1);
@@ -28,6 +29,7 @@ export default function PageLoader() {
       clearTimeout(t3);
       clearTimeout(t4);
       clearTimeout(t5);
+      clearTimeout(t6);
     };
   }, [location.pathname, location.search]);
 

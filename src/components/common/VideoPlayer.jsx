@@ -3,7 +3,7 @@ import Hls from 'hls.js';
 import Plyr from 'plyr';
 import 'plyr/dist/plyr.css';
 
-const VideoPlayer = ({ src, type, poster, subtitles = [] }) => {
+const VideoPlayer = ({ src, type, poster, subtitles = [], onEnded, onTimeUpdate }) => {
   const videoRef = useRef(null);
   const playerRef = useRef(null);
   const hlsRef = useRef(null);
@@ -11,6 +11,24 @@ const VideoPlayer = ({ src, type, poster, subtitles = [] }) => {
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src || typeof src !== 'string') return;
+
+    // Forward video events to parent component AND via postMessage
+    const handleEnded = () => {
+      if (onEnded) onEnded();
+      // Also broadcast via postMessage so the existing message listener catches it
+      window.postMessage({ event: "complete", type: "ended" }, "*");
+    };
+
+    const handleTimeUpdate = () => {
+      const currentTime = video.currentTime;
+      const duration = video.duration;
+      if (onTimeUpdate) onTimeUpdate(currentTime, duration);
+      // Broadcast via postMessage for AutoSkip
+      window.postMessage({ event: "timeupdate", currentTime, duration }, "*");
+    };
+
+    video.addEventListener('ended', handleEnded);
+    video.addEventListener('timeupdate', handleTimeUpdate);
 
     // Default Plyr options
     const defaultOptions = {
@@ -75,6 +93,8 @@ const VideoPlayer = ({ src, type, poster, subtitles = [] }) => {
     }
 
     return () => {
+      video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
       if (playerRef.current && typeof playerRef.current.destroy === 'function') {
         playerRef.current.destroy();
         playerRef.current = null;
