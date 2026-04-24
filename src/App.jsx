@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ScrollToTop from "./components/common/ScrollToTop";
+import PageLoader from "./components/common/PageLoader";
 import Home from "./pages/Home";
 import Portal from "./pages/Portal";
 import Browse from "./pages/Browse";
@@ -15,6 +16,7 @@ export default function App() {
   return (
     <Router>
       <ScrollToTop />
+      <PageLoader />
       <Routes>
         <Route path="/" element={<Portal />} />
         <Route path="/home" element={<Home />} />

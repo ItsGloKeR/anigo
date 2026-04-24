@@ -1123,25 +1123,7 @@ export default function Watch() {
                     ) : (
                       /* ERROR / NO STREAM STATE */
                       <div className="animate-in fade-in zoom-in-95 duration-300">
-                        {fetchError ? (
-                          <div className="flex flex-col items-center gap-3">
-                            <Frown size={48} className="text-white/20" />
-                            <p className="text-white/60 text-sm font-bold uppercase tracking-widest">Playback Issue</p>
-                            <p className="text-white/20 text-[10px] max-w-[250px]">{fetchError}</p>
-                            <button
-                              onClick={() => window.location.reload()}
-                              className="mt-2 px-4 py-1.5 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-bold uppercase tracking-widest rounded-sm transition-all"
-                            >
-                              Retry Page
-                            </button>
-                          </div>
-                        ) : (!streamLoading && !streamUrl) && (
-                          <div className="flex flex-col items-center gap-3">
-                            <Frown size={48} className="text-white/20" />
-                            <p className="text-white/60 text-sm font-bold uppercase tracking-widest">No Stream Found</p>
-                            <p className="text-white/20 text-[10px] max-w-[200px]">Try switching servers or language (Sub/Dub).</p>
-                          </div>
-                        )}
+                        <div />
                       </div>
                     )}
                   </div>
