@@ -26,7 +26,7 @@ export default function Footer() {
     {
       title: "Legal",
       links: [
-        { name: "Terms of Service", path: "#", icon: Tv },
+        { name: "Terms of Service", path: "/terms", icon: Tv },
         { name: "DMCA", path: "/dmca", icon: Info },
         { name: "Contact Us", path: "#" },
       ],
