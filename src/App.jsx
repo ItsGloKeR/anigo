@@ -11,6 +11,7 @@ const Watch = lazy(() => import("./pages/Watch"));
 const Character = lazy(() => import("./pages/Character"));
 const Staff = lazy(() => import("./pages/Staff"));
 const Schedule = lazy(() => import("./pages/Schedule"));
+const DMCA = lazy(() => import("./pages/DMCA"));
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/character/:id" element={<Character />} />
           <Route path="/staff/:id" element={<Staff />} />
           <Route path="/schedule" element={<Schedule />} />
+          <Route path="/dmca" element={<DMCA />} />
         </Routes>
       </Suspense>
     </Router>

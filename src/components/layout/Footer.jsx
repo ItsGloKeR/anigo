@@ -27,7 +27,7 @@ export default function Footer() {
       title: "Legal",
       links: [
         { name: "Terms of Service", path: "#", icon: Tv },
-        { name: "DMCA", path: "#", icon: Info },
+        { name: "DMCA", path: "/dmca", icon: Info },
         { name: "Contact Us", path: "#" },
       ],
     },
@@ -49,10 +49,10 @@ export default function Footer() {
 
         {/* SEO About Section */}
         <article className="mb-14 pb-10 border-b border-white/5">
-          <h2 className="text-[14px] md:text-[16px] font-black text-white/90 mb-4 tracking-wide">
+          <h2 className="text-[14px] md:text-[16px] font-medium text-white/60 mb-4 tracking-wide">
             AniXO – Watch Free Anime Online in HD
           </h2>
-          <p className="text-[12px] md:text-[13px] text-white/30 leading-[1.8] max-w-[900px] font-medium">
+          <p className="text-[12px] md:text-[13px] text-white/40 leading-[1.8] max-w-[900px] font-normal">
             AniXO is a free anime streaming site where you can watch subbed and dubbed anime online in high definition.
             Enjoy the latest episodes of popular anime series like One Piece, Demon Slayer, Jujutsu Kaisen, Attack on Titan,
             My Hero Academia, Naruto Shippuden, Dragon Ball Super, and thousands more — all without ads or interruptions.

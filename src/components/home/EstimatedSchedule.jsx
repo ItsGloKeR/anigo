@@ -49,14 +49,15 @@ export default function EstimatedSchedule() {
     days.push(d);
   }
 
-  // Scroll to "Today" when component mounts
+  // Scroll date bar to "Today" when component mounts (without moving page)
   useEffect(() => {
     if (scrollRef.current) {
       const todayBtn = scrollRef.current.querySelector('[data-today="true"]');
       if (todayBtn) {
-        // Small delay ensures layout is complete
         setTimeout(() => {
-          todayBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          const container = scrollRef.current;
+          const scrollPos = todayBtn.offsetLeft - container.offsetLeft - (container.clientWidth / 2) + (todayBtn.clientWidth / 2);
+          container.scrollLeft = Math.max(0, scrollPos);
         }, 100);
       }
     }
